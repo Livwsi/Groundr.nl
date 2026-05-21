@@ -104,6 +104,15 @@ export default function AgencyMicrosite({ params }: { params: { slug: string } }
   const [bidListing,     setBidListing]     = useState<any>(null)
   const [viewingListing, setViewingListing] = useState<any>(null)
 
+  const [favourites, setFavourites] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    const favs = Object.keys(localStorage)
+      .filter(k => k.startsWith('fav_'))
+      .map(k => k.replace('fav_', ''))
+    setFavourites(new Set(favs))
+  }, [])
+
   useEffect(() => {
     fetch(`http://localhost:8000/api/listings/public/${AGENCY.userId}`)
       .then(r => r.json())
@@ -392,6 +401,27 @@ export default function AgencyMicrosite({ params }: { params: { slug: string } }
                       {listing.urgency === 'asap' ? 'Moet weg' : 'Urgent'}
                     </div>
                   )}
+                  {/* Favourite button */}
+                  <button
+                    onClick={e => {
+                      e.stopPropagation()
+                      const key = `fav_${listing.id}`
+                      const isFav = favourites.has(listing.id)
+                      if (isFav) {
+                        localStorage.removeItem(key)
+                        setFavourites(prev => { const s = new Set(prev); s.delete(listing.id); return s })
+                      } else {
+                        localStorage.setItem(key, '1')
+                        setFavourites(prev => new Set([...prev, listing.id]))
+                      }
+                    }}
+                    className="absolute bottom-3 right-3"
+                    style={{ zIndex: 10 }}
+                  >
+                    <span style={{ fontSize: '18px' }}>
+                      {favourites.has(listing.id) ? '❤️' : '🤍'}
+                    </span>
+                  </button>
                 </div>
 
                 {/* Content */}
@@ -440,6 +470,23 @@ export default function AgencyMicrosite({ params }: { params: { slug: string } }
                               {formatPrice(listing.highest_bid)}
                             </span></span>
                           )}
+                          {listing.bid_deadline && (() => {
+                            const diff = new Date(listing.bid_deadline).getTime() - Date.now()
+                            if (diff <= 0) return (
+                              <div className="mt-1 font-semibold" style={{ color: '#b84033' }}>
+                                ⏱ Biedingstermijn verlopen
+                              </div>
+                            )
+                            const days  = Math.floor(diff / 86400000)
+                            const hours = Math.floor((diff % 86400000) / 3600000)
+                            const mins  = Math.floor((diff % 3600000) / 60000)
+                            const label = days > 0 ? `${days}d ${hours}u` : hours > 0 ? `${hours}u ${mins}m` : `${mins}m`
+                            return (
+                              <div className="mt-1 font-semibold" style={{ color: '#c47c1a' }}>
+                                ⏱ Nog {label} om te bieden
+                              </div>
+                            )
+                          })()}
                         </div>
                       )}
                       <div className="flex gap-2">
@@ -458,6 +505,20 @@ export default function AgencyMicrosite({ params }: { params: { slug: string } }
                           style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.1)' }}
                         >
                           📅 Bezichtiging
+                        </button>
+                        <button
+                          onClick={e => {
+                            e.stopPropagation()
+                            navigator.clipboard.writeText(
+                              `${window.location.origin}/microsite/${params.slug}?listing=${listing.id}`
+                            )
+                            alert('Link gekopieerd!')
+                          }}
+                          className="text-xs font-semibold py-1.5 px-2 transition-all"
+                          style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.08)' }}
+                          title="Kopieer link"
+                        >
+                          🔗
                         </button>
                       </div>
                     </div>
