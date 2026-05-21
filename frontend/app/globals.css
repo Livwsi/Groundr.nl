@@ -1,0 +1,29 @@
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Outfit:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+@import "tailwindcss";
+
+@theme {
+  --color-g900: #061a11;
+  --color-g800: #0e3b28;
+  --color-g700: #165c3e;
+  --color-g600: #1e7d55;
+  --color-g500: #2dbe81;
+  --color-g400: #2fc586;
+  --color-g300: #71ddaf;
+  --color-g200: #b3ecd4;
+  --color-g100: #daf6ea;
+  --color-g50:  #f0faf5;
+  --color-amber: #c47c1a;
+  --color-terra: #b84033;
+  --color-sand:  #f7f3ee;
+  --color-muted: #5a7a6a;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: var(--font-body);
+  background: #0a1f12;
+  color: white;
+  -webkit-font-smoothing: antialiased;
+}
