@@ -238,6 +238,117 @@ async def delete_listing(
 
     return {"message": "Listing verwijderd"}
 
+# ─────────────────────────────────────────────────────────
+# ENDPOINT: MAKELAAR ANALYTICS
+# Returns performance stats for all listings
+# ─────────────────────────────────────────────────────────
+
+@router.get("/analytics/summary")
+async def get_analytics_summary(
+    user: User         = Depends(require_user),
+    db:   AsyncSession = Depends(get_db),
+):
+    """Analytics summary for makelaar — bids, viewings, meldingen per listing."""
+    from sqlalchemy import text
+
+    # All submissions for this makelaar with bid + viewing counts
+    result = await db.execute(text("""
+        SELECT
+            ls.id,
+            ls.reference,
+            ls.asking_price,
+            ls.urgency,
+            ls.status,
+            ls.created_at,
+            p.street,
+            p.house_number,
+            p.city,
+            p.living_area_m2 as area_m2,
+            COUNT(DISTINCT b.id)  as bid_count,
+            MAX(b.amount)         as highest_bid,
+            COUNT(DISTINCT vr.id) as viewing_count,
+            COUNT(DISTINCT CASE WHEN vr.status = 'confirmed' THEN vr.id END) as confirmed_viewings,
+            COUNT(DISTINCT m.id)  as melding_count
+        FROM listing_submissions ls
+        JOIN properties p ON ls.property_id = p.id
+        LEFT JOIN bids b ON b.submission_id = ls.id
+        LEFT JOIN viewing_requests vr ON vr.submission_id = ls.id
+        LEFT JOIN meldingen m ON m.submission_id = ls.id
+        WHERE ls.makelaar_id = :uid
+        GROUP BY ls.id, p.street, p.house_number, p.city, p.living_area_m2
+        ORDER BY ls.created_at DESC
+    """), {"uid": user.id})
+    rows = result.fetchall()
+
+    # Also get market listings stats
+    listings_result = await db.execute(text("""
+        SELECT
+            ml.id,
+            ml.asking_price,
+            ml.status,
+            ml.listed_date,
+            p.street,
+            p.house_number,
+            p.city,
+            p.living_area_m2 as area_m2,
+            EXTRACT(DAY FROM NOW() - ml.listed_date)::int as days_on_market
+        FROM market_listings ml
+        JOIN properties p ON ml.property_id = p.id
+        WHERE ml.user_id = :uid
+        ORDER BY ml.listed_date DESC
+    """), {"uid": user.id})
+    listing_rows = listings_result.fetchall()
+
+    # Totals
+    total_bids      = sum(r.bid_count for r in rows)
+    total_viewings  = sum(r.viewing_count for r in rows)
+    total_meldingen = sum(r.melding_count for r in rows)
+    avg_dom         = round(sum(r.days_on_market or 0 for r in listing_rows) / len(listing_rows)) if listing_rows else 0
+
+    return {
+        "totals": {
+            "listings":         len(listing_rows),
+            "submissions":      len(rows),
+            "total_bids":       total_bids,
+            "total_viewings":   total_viewings,
+            "total_meldingen":  total_meldingen,
+            "avg_days_on_market": avg_dom,
+        },
+        "submissions": [
+            {
+                "id":                  r.id,
+                "reference":           r.reference,
+                "street":              r.street,
+                "house_number":        r.house_number,
+                "city":                r.city,
+                "area_m2":             r.area_m2,
+                "asking_price":        r.asking_price,
+                "urgency":             r.urgency,
+                "status":              r.status,
+                "created_at":          str(r.created_at),
+                "bid_count":           r.bid_count,
+                "highest_bid":         float(r.highest_bid) if r.highest_bid else None,
+                "viewing_count":       r.viewing_count,
+                "confirmed_viewings":  r.confirmed_viewings,
+                "melding_count":       r.melding_count,
+                "conversion_rate":     round(r.confirmed_viewings / r.viewing_count * 100) if r.viewing_count > 0 else 0,
+            }
+            for r in rows
+        ],
+        "listings": [
+            {
+                "id":              r.id,
+                "street":          r.street,
+                "house_number":    r.house_number,
+                "city":            r.city,
+                "asking_price":    r.asking_price,
+                "status":          r.status,
+                "days_on_market":  r.days_on_market or 0,
+            }
+            for r in listing_rows
+        ],
+    }
+
 
 # ─────────────────────────────────────────────────────────
 # HELPER: FORMAT LISTING FOR API RESPONSE

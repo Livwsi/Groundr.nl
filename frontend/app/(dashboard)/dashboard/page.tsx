@@ -253,6 +253,10 @@ export default function DashboardPage() {
             Meldingen
             <Badge count={badges.open_meldingen} />
           </Link>
+          <Link href="/analytics"
+            className="text-sm text-g300 opacity-50 hover:opacity-100 transition-opacity">
+            Analytics
+          </Link>
         </div>
 
         <div className="flex items-center gap-4">
