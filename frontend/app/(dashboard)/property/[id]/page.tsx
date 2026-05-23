@@ -14,7 +14,7 @@ const PropertyMap = dynamic(
 )
 
 interface Property {
-  id:            number
+  id:            number 
   street:        string
   house_number:  string
   postal_code:   string
@@ -65,6 +65,77 @@ const PHOTO_GRADIENTS = [
   'linear-gradient(135deg, #0a2a1e 0%, #0e3b28 50%, #165c3e 100%)',
   'linear-gradient(135deg, #061a11 0%, #0e3b28 50%, #2dbe81 100%)',
 ]
+
+function PriceHistoryChart({ propertyId }: { propertyId: number }) {
+  const [history, setHistory] = useState<{ year: number; price: number }[]>([])
+
+  useEffect(() => {
+    fetch(`http://localhost:8000/api/properties/${propertyId}/price-history`)
+      .then(r => r.json())
+      .then(data => setHistory(data.history || []))
+      .catch(() => {})
+  }, [propertyId])
+
+  if (history.length === 0) return null
+
+  const max   = Math.max(...history.map(h => h.price))
+  const min   = Math.min(...history.map(h => h.price))
+  const range = max - min || 1
+
+  const W = 400
+  const H = 100
+  const pad = { t: 10, r: 10, b: 24, l: 10 }
+  const cw = W - pad.l - pad.r
+  const ch = H - pad.t - pad.b
+
+  const pts = history.map((h, i) => ({
+    x: pad.l + (i / (history.length - 1)) * cw,
+    y: pad.t + (1 - (h.price - min) / range) * ch,
+    price: h.price,
+    year: h.year,
+  }))
+
+  const pathD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
+  const areaD = `${pathD} L ${pts[pts.length-1].x} ${H - pad.b} L ${pts[0].x} ${H - pad.b} Z`
+
+  const pctChange = ((history[history.length-1].price - history[0].price) / history[0].price * 100).toFixed(0)
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs text-g300 opacity-40">WOZ 2019–2025</span>
+        <span className="text-xs font-mono font-bold" style={{ color: '#2fc586' }}>
+          +{pctChange}% in 6 jaar
+        </span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: '80px' }}>
+        <defs>
+          <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#2fc586" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#2fc586" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {/* Area fill */}
+        <path d={areaD} fill="url(#chartFill)" />
+        {/* Line */}
+        <path d={pathD} fill="none" stroke="#2fc586" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        {/* Data points */}
+        {pts.map((p, i) => (
+          <g key={i}>
+            <circle cx={p.x} cy={p.y} r="3" fill="#2fc586" />
+            <text x={p.x} y={H - 4} textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.3)">
+              {p.year}
+            </text>
+          </g>
+        ))}
+      </svg>
+      <div className="flex justify-between mt-1">
+        <span className="font-mono text-xs text-g300 opacity-40">{formatPrice(min)}</span>
+        <span className="font-mono text-xs text-g300 opacity-40">{formatPrice(max)}</span>
+      </div>
+    </div>
+  )
+}
 
 export default function PropertyDetailPage() {
   const params = useParams()
@@ -284,13 +355,13 @@ export default function PropertyDetailPage() {
               </div>
             </div>
 
-            {/* WOZ value */}
-            {property.woz_value && (
-              <div className="bg-g800 border border-g700 p-5">
-                <h2 className="font-display font-bold text-white text-sm uppercase tracking-wider opacity-50 mb-4">
-                  WOZ-waarde
-                </h2>
-                <div className="flex items-center justify-between">
+            {/* WOZ value + price history chart */}
+            <div className="bg-g800 border border-g700 p-5">
+              <h2 className="font-display font-bold text-white text-sm uppercase tracking-wider opacity-50 mb-4">
+                WOZ-waarde & prijsontwikkeling
+              </h2>
+              {property.woz_value && (
+                <div className="flex items-center justify-between mb-6">
                   <div>
                     <div className="font-mono text-3xl font-semibold text-white">
                       {formatPrice(property.woz_value)}
@@ -301,8 +372,9 @@ export default function PropertyDetailPage() {
                   </div>
                   <TrendingUp size={32} className="text-g400 opacity-20" />
                 </div>
-              </div>
-            )}
+              )}
+              <PriceHistoryChart propertyId={property.id} />
+            </div>
 
             {/* Amenities */}
             {score && score.amenities.length > 0 && (

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Search, MapPin, TrendingUp, Home, LogOut } from 'lucide-react'
 import dynamic from 'next/dynamic'
+import InviteModal from '@/components/invite/InviteModal'
 
 const PropertyMap = dynamic(
   () => import('@/components/map/PropertyMap'),
@@ -47,14 +48,15 @@ function Badge({ count }: { count: number }) {
 export default function DashboardPage() {
   const router = useRouter()
 
-  const [address,    setAddress]    = useState('')
-  const [radius,     setRadius]     = useState('2.0')
-  const [loading,    setLoading]    = useState(false)
-  const [result,     setResult]     = useState<ScoreResult | null>(null)
-  const [error,      setError]      = useState('')
-  const [email,      setEmail]      = useState('gebruiker')
-  const [properties, setProperties] = useState<any[]>([])
-  const [badges,     setBadges]     = useState<Badges>({
+  const [address,     setAddress]     = useState('')
+  const [radius,      setRadius]      = useState('2.0')
+  const [loading,     setLoading]     = useState(false)
+  const [result,      setResult]      = useState<ScoreResult | null>(null)
+  const [error,       setError]       = useState('')
+  const [email,       setEmail]       = useState('gebruiker')
+  const [properties,  setProperties]  = useState<any[]>([])
+  const [showInvite,  setShowInvite]  = useState(false)
+  const [badges,      setBadges]      = useState<Badges>({
     pending_viewings:  0,
     pending_bids:      0,
     open_meldingen:    0,
@@ -62,72 +64,66 @@ export default function DashboardPage() {
   })
 
   function generateExplanation(result: ScoreResult): { icon: string; text: string }[] {
-  const lines: { icon: string; text: string }[] = []
-  const f = result.factors
+    const lines: { icon: string; text: string }[] = []
+    const f = result.factors
 
-  // Rental yield
-  if (f.rental_yield >= 70)
-    lines.push({ icon: '📈', text: 'Uitstekend huurrendement in deze buurt' })
-  else if (f.rental_yield >= 40)
-    lines.push({ icon: '📊', text: 'Gemiddeld huurrendement' })
-  else
-    lines.push({ icon: '📉', text: 'Laag huurrendement' })
+    if (f.rental_yield >= 70)
+      lines.push({ icon: '📈', text: 'Uitstekend huurrendement in deze buurt' })
+    else if (f.rental_yield >= 40)
+      lines.push({ icon: '📊', text: 'Gemiddeld huurrendement' })
+    else
+      lines.push({ icon: '📉', text: 'Laag huurrendement' })
 
-  // Price trend
-  if (f.price_trend_6m >= 70)
-    lines.push({ icon: '🏠', text: 'Sterke prijsstijging afgelopen 6 maanden' })
-  else if (f.price_trend_6m >= 40)
-    lines.push({ icon: '🏠', text: 'Stabiele prijsontwikkeling' })
-  else
-    lines.push({ icon: '🏠', text: 'Prijzen onder druk in dit gebied' })
+    if (f.price_trend_6m >= 70)
+      lines.push({ icon: '🏠', text: 'Sterke prijsstijging afgelopen 6 maanden' })
+    else if (f.price_trend_6m >= 40)
+      lines.push({ icon: '🏠', text: 'Stabiele prijsontwikkeling' })
+    else
+      lines.push({ icon: '🏠', text: 'Prijzen onder druk in dit gebied' })
 
-  // WOZ delta
-  if (f.woz_delta >= 70)
-    lines.push({ icon: '💰', text: 'WOZ-waarde stijgt sterk — goed teken' })
-  else if (f.woz_delta < 30)
-    lines.push({ icon: '💰', text: 'WOZ-waarde stagnatie' })
+    if (f.woz_delta >= 70)
+      lines.push({ icon: '💰', text: 'WOZ-waarde stijgt sterk — goed teken' })
+    else if (f.woz_delta < 30)
+      lines.push({ icon: '💰', text: 'WOZ-waarde stagnatie' })
 
-  // Energy label
-  if (f.energy_label >= 80)
-    lines.push({ icon: '⚡', text: 'Energiezuinig pand (label A of B)' })
-  else if (f.energy_label < 40)
-    lines.push({ icon: '⚡', text: 'Energielabel matig — verduurzaming gewenst' })
+    if (f.energy_label >= 80)
+      lines.push({ icon: '⚡', text: 'Energiezuinig pand (label A of B)' })
+    else if (f.energy_label < 40)
+      lines.push({ icon: '⚡', text: 'Energielabel matig — verduurzaming gewenst' })
 
-  // Amenities — closest ones
-  const transit = result.amenities.find(a =>
-    ['bus_stop','train_station','subway_entrance','tram_stop'].includes(a.type))
-  if (transit) {
-    const dist = transit.distance_m < 1000
-      ? `${Math.round(transit.distance_m)}m`
-      : `${(transit.distance_m / 1000).toFixed(1)}km`
-    lines.push({ icon: '🚌', text: `Openbaar vervoer op ${dist} afstand` })
+    const transit = result.amenities.find(a =>
+      ['bus_stop','train_station','subway_entrance','tram_stop'].includes(a.type))
+    if (transit) {
+      const dist = transit.distance_m < 1000
+        ? `${Math.round(transit.distance_m)}m`
+        : `${(transit.distance_m / 1000).toFixed(1)}km`
+      lines.push({ icon: '🚌', text: `Openbaar vervoer op ${dist} afstand` })
+    }
+
+    const school = result.amenities.find(a =>
+      ['school','kindergarten','university'].includes(a.type))
+    if (school) {
+      const dist = school.distance_m < 1000
+        ? `${Math.round(school.distance_m)}m`
+        : `${(school.distance_m / 1000).toFixed(1)}km`
+      lines.push({ icon: '🎓', text: `School binnen ${dist}` })
+    }
+
+    const supermarket = result.amenities.find(a => a.type === 'supermarket')
+    if (supermarket) {
+      const dist = supermarket.distance_m < 1000
+        ? `${Math.round(supermarket.distance_m)}m`
+        : `${(supermarket.distance_m / 1000).toFixed(1)}km`
+      lines.push({ icon: '🛒', text: `Supermarkt op ${dist}` })
+    }
+
+    if (result.neighborhood.pct_houses >= 60)
+      lines.push({ icon: '🏡', text: 'Rustige woonwijk — overwegend eengezinswoningen' })
+    else if (result.neighborhood.pct_apartments >= 60)
+      lines.push({ icon: '🏢', text: 'Stedelijk gebied — veel appartementen' })
+
+    return lines.slice(0, 5)
   }
-
-  const school = result.amenities.find(a =>
-    ['school','kindergarten','university'].includes(a.type))
-  if (school) {
-    const dist = school.distance_m < 1000
-      ? `${Math.round(school.distance_m)}m`
-      : `${(school.distance_m / 1000).toFixed(1)}km`
-    lines.push({ icon: '🎓', text: `School binnen ${dist}` })
-  }
-
-  const supermarket = result.amenities.find(a => a.type === 'supermarket')
-  if (supermarket) {
-    const dist = supermarket.distance_m < 1000
-      ? `${Math.round(supermarket.distance_m)}m`
-      : `${(supermarket.distance_m / 1000).toFixed(1)}km`
-    lines.push({ icon: '🛒', text: `Supermarkt op ${dist}` })
-  }
-
-  // Neighborhood composition
-  if (result.neighborhood.pct_houses >= 60)
-    lines.push({ icon: '🏡', text: 'Rustige woonwijk — overwegend eengezinswoningen' })
-  else if (result.neighborhood.pct_apartments >= 60)
-    lines.push({ icon: '🏢', text: 'Stedelijk gebied — veel appartementen' })
-
-  return lines.slice(0, 5) // max 5 lines to keep it compact
-}
 
   useEffect(() => {
     setEmail(localStorage.getItem('email') || 'gebruiker')
@@ -138,9 +134,7 @@ export default function DashboardPage() {
   async function loadBadges() {
     const token = localStorage.getItem('token')
     if (!token) return
-
     try {
-      // Fetch pending viewings, meldingen, approvals in parallel
       const [viewRes, melRes, subRes] = await Promise.all([
         fetch('http://localhost:8000/api/viewings/requests',
           { headers: { Authorization: `Bearer ${token}` } }),
@@ -149,14 +143,12 @@ export default function DashboardPage() {
         fetch('http://localhost:8000/api/submissions/pending',
           { headers: { Authorization: `Bearer ${token}` } }),
       ])
-
       const [viewData, melData, subData] = await Promise.all([
         viewRes.json(), melRes.json(), subRes.json(),
       ])
-
       setBadges({
         pending_viewings:  (viewData.requests || []).filter((r: any) => r.status === 'pending').length,
-        pending_bids:      0, // bids don't need approval — just info
+        pending_bids:      0,
         open_meldingen:    (melData.meldingen || []).filter((m: any) => m.status === 'open').length,
         pending_approvals: (subData.submissions || []).length,
       })
@@ -189,11 +181,9 @@ export default function DashboardPage() {
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault()
     if (!address.trim()) return
-
     setLoading(true)
     setError('')
     setResult(null)
-
     try {
       const token = localStorage.getItem('token')
       const res = await fetch(
@@ -220,6 +210,9 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-g900">
+
+      {/* Invite modal */}
+      {showInvite && <InviteModal onClose={() => setShowInvite(false)} />}
 
       {/* Nav */}
       <nav className="bg-g800 border-b border-g700 px-6 h-14 flex items-center justify-between">
@@ -253,6 +246,7 @@ export default function DashboardPage() {
             Meldingen
             <Badge count={badges.open_meldingen} />
           </Link>
+
           <Link href="/analytics"
             className="text-sm text-g300 opacity-50 hover:opacity-100 transition-opacity">
             Analytics
@@ -260,7 +254,6 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex items-center gap-4">
-          {/* Total alert indicator */}
           {totalAlerts > 0 && (
             <div className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1"
               style={{ background: 'rgba(196,124,26,0.1)', color: '#c47c1a', border: '1px solid rgba(196,124,26,0.2)' }}>
@@ -268,6 +261,16 @@ export default function DashboardPage() {
               {totalAlerts} actie{totalAlerts > 1 ? 's' : ''} vereist
             </div>
           )}
+
+          {/* Invite button */}
+          <button
+            onClick={() => setShowInvite(true)}
+            className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 transition-opacity"
+            style={{ background: 'rgba(47,197,134,0.1)', color: '#2fc586', border: '1px solid rgba(47,197,134,0.25)' }}
+          >
+            + Klant uitnodigen
+          </button>
+
           <span className="text-sm text-g300 opacity-60">{email}</span>
           <button
             onClick={() => { localStorage.clear(); window.location.href = '/login' }}
@@ -322,14 +325,12 @@ export default function DashboardPage() {
           </button>
         </form>
 
-        {/* Error */}
         {error && (
           <div className="bg-red-900/30 border border-red-700/40 text-red-300 text-sm px-4 py-3 mb-6">
             {error}
           </div>
         )}
 
-        {/* Results */}
         {result && (
           <div className="flex flex-col gap-4">
             <div className="grid grid-cols-3 gap-4">
@@ -341,8 +342,6 @@ export default function DashboardPage() {
                   {result.score}
                 </div>
                 <div className="text-xs text-g300 opacity-40 mt-1 mb-4">/100</div>
-
-                {/* Human-readable explanation */}
                 <div className="w-full flex flex-col gap-1.5 border-t border-g700 pt-4">
                   {generateExplanation(result).map((line, i) => (
                     <div key={i} className="flex items-start gap-2 text-xs text-g300 opacity-70">
@@ -442,7 +441,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Map */}
         {!result && !loading && !error && (
           <div className="w-full h-96 bg-g800 border border-g700 mb-8">
             <PropertyMap
@@ -452,7 +450,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Empty state */}
         {!result && !loading && !error && (
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <div className="w-16 h-16 bg-g800 border border-g700 flex items-center justify-center mb-4">

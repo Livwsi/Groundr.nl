@@ -41,7 +41,7 @@ export default function PropertyMap({
   // Init map once
   useEffect(() => {
     if (!mapContainer.current || map.current) return
-
+  mapboxgl.accessToken = MAPBOX_TOKEN
   map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style:     'mapbox://styles/mapbox/outdoors-v12',

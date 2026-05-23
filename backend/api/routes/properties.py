@@ -16,10 +16,12 @@
 #   http://localhost:8000/docs
 # ─────────────────────────────────────────────────────────────
 
+
+
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from sqlalchemy import select
 
 from analytics.spatial import radius_query
@@ -99,6 +101,31 @@ async def search_properties(
 #
 # Returns the full details of one property by its ID.
 # ─────────────────────────────────────────────────────────────
+
+@router.get("/{property_id}/price-history")
+async def get_price_history(property_id: int):
+    """Get WOZ price history for a property."""
+    from sqlalchemy import text
+    async with get_db_session() as db:
+        result = await db.execute(text("""
+            SELECT snapshot_date, price, source
+            FROM price_history
+            WHERE property_id = :pid
+            ORDER BY snapshot_date ASC
+        """), {"pid": property_id})
+        rows = result.fetchall()
+    return {
+        "property_id": property_id,
+        "history": [
+            {
+                "year":   r.snapshot_date.year,
+                "price":  int(r.price),
+                "source": r.source,
+            }
+            for r in rows
+        ]
+    }
+
 
 @router.get("/{property_id}")
 async def get_property(property_id: int):
