@@ -199,6 +199,9 @@ export default function DashboardPage() {
             {t('nav.meldingen')}<Badge count={badges.open_meldingen} />
           </Link>
           <Link href="/analytics" className="text-sm text-g300 opacity-50 hover:opacity-100 transition-opacity">{t('nav.analytics')}</Link>
+          <Link href="/taxatie" className="text-sm text-g300 opacity-50 hover:opacity-100 transition-opacity">
+            {lang === 'nl' ? 'Taxatie' : 'Valuation'}
+          </Link>
         </div>
 
         <div className="flex items-center gap-4">
@@ -249,9 +252,7 @@ export default function DashboardPage() {
           </button>
         </form>
 
-        {error && (
-          <div className="bg-red-900/30 border border-red-700/40 text-red-300 text-sm px-4 py-3 mb-6">{error}</div>
-        )}
+        {error && <div className="bg-red-900/30 border border-red-700/40 text-red-300 text-sm px-4 py-3 mb-6">{error}</div>}
 
         {result && (
           <div className="flex flex-col gap-4">
