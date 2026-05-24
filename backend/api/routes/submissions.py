@@ -296,6 +296,10 @@ async def approve_submission(
         )
 
     logger.info(f"[SUBMISSIONS] Makelaar {user.id} approved submission {submission_id}")
+
+    # Trigger buyer alerts for matching saved searches
+    await _trigger_buyer_alerts(db, submission_id)
+
     return {"message": "Aanmelding goedgekeurd. Woning staat nu live."}
 
 
@@ -429,3 +433,58 @@ async def get_bids(
 
 def _format_price(amount: float) -> str:
     return f"€{amount:,.0f}".replace(",", ".")
+
+
+# ─────────────────────────────────────────────────────────────
+# HELPER: trigger buyer alerts for a newly approved listing
+# Called from approve_submission
+# ─────────────────────────────────────────────────────────────
+
+async def _trigger_buyer_alerts(db: AsyncSession, submission_id: int):
+    """Find saved searches that match this listing and email buyers."""
+    # Get listing details
+    listing = await db.execute(text("""
+        SELECT p.city, p.living_area_m2, p.property_type,
+               ls.asking_price, ls.id as sub_id
+        FROM listing_submissions ls
+        JOIN properties p ON ls.property_id = p.id
+        WHERE ls.id = :sid
+    """), {"sid": submission_id})
+    l = listing.fetchone()
+    if not l:
+        return
+
+    # Find matching saved searches with email alerts enabled
+    matches = await db.execute(text("""
+        SELECT ss.id, ss.buyer_id, u.email, u.full_name,
+               p.street, p.house_number
+        FROM saved_searches ss
+        JOIN users u ON ss.buyer_id = u.id
+        JOIN listing_submissions ls ON ls.id = :sid
+        JOIN properties p ON ls.property_id = p.id
+        WHERE ss.email_alerts = TRUE
+          AND (ss.city IS NULL OR LOWER(ss.city) = LOWER(:city))
+          AND (ss.min_price IS NULL OR :price >= ss.min_price OR :price IS NULL)
+          AND (ss.max_price IS NULL OR :price <= ss.max_price OR :price IS NULL)
+          AND (ss.min_area_m2 IS NULL OR :area >= ss.min_area_m2 OR :area IS NULL)
+          AND (ss.property_type IS NULL OR ss.property_type = :ptype)
+    """), {
+        "sid":   submission_id,
+        "city":  l.city,
+        "price": l.asking_price,
+        "area":  l.living_area_m2,
+        "ptype": str(l.property_type).split(".")[-1].lower() if l.property_type else None,
+    })
+    buyers = matches.fetchall()
+
+    for buyer in buyers:
+        address     = f"{buyer.street} {buyer.house_number}, {l.city}"
+        listing_url = f"{settings.FRONTEND_URL}/dossier/dashboard"
+        await email.send_buyer_alert(
+            to=buyer.email,
+            buyer_name=buyer.full_name or "Koper",
+            address=address,
+            price=l.asking_price or 0,
+            listing_url=listing_url,
+        )
+        logger.info(f"[ALERTS] Sent buyer alert to {buyer.email} for submission {submission_id}")

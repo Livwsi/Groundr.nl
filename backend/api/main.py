@@ -28,7 +28,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config.settings import settings
 from db.connection import init_db
-from api.routes import properties, analytics, auth, listings, submissions, viewings, meldingen
+from api.routes import properties, analytics, auth, listings, submissions, viewings, meldingen, searches
 # Set up logging so we can see what is happening
 logging.basicConfig(
     level   = logging.INFO,
@@ -148,6 +148,14 @@ app.include_router(
     prefix="/api/meldingen",
     tags=["Meldingen"],
 )
+
+
+app.include_router(
+    searches.router,
+    prefix="/api/searches",
+    tags=["Searches"],
+)
+
 
 
 # ─────────────────────────────────────────────────────────────
