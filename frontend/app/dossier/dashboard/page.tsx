@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Home, FileText, CheckCircle, Clock,
-  Phone, Mail, LogOut, AlertTriangle, Calendar, Search, Trash2
+  Phone, Mail, LogOut, AlertTriangle, Calendar, Search, Trash2, Upload, Download
 } from 'lucide-react'
 import MeldingModal from '@/components/meldingen/MeldingModal'
 
@@ -56,12 +56,18 @@ export default function DossierDashboard() {
   const [savingSearch, setSavingSearch] = useState(false)
   const [searchMsg,    setSearchMsg]    = useState('')
 
+  // Documents state
+  const [documents,   setDocuments]   = useState<any[]>([])
+  const [uploading,   setUploading]   = useState(false)
+  const [uploadError, setUploadError] = useState('')
+
   useEffect(() => {
     const token = localStorage.getItem('dossier_token')
     if (!token) { router.push('/dossier/login'); return }
     setEmail(localStorage.getItem('dossier_email') || 'gebruiker')
     loadRealData(token)
     loadSearches(token)
+    loadDocuments(token)
   }, [])
 
   async function loadRealData(token: string) {
@@ -89,6 +95,44 @@ export default function DossierDashboard() {
       const data = await res.json()
       setSearches(data.searches || [])
     } catch {}
+  }
+
+  async function loadDocuments(token: string) {
+    try {
+      const res  = await fetch('http://localhost:8000/api/documents/', { headers: { Authorization: `Bearer ${token}` } })
+      const data = await res.json()
+      setDocuments(data.documents || [])
+    } catch {}
+  }
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    setUploadError('')
+    try {
+      const token    = localStorage.getItem('dossier_token')
+      const formData = new FormData()
+      formData.append('file', file)
+      const res  = await fetch('http://localhost:8000/api/documents/upload', {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData,
+      })
+      const data = await res.json()
+      if (!res.ok) { setUploadError(data.detail || 'Upload mislukt.'); return }
+      loadDocuments(token!)
+    } catch { setUploadError('Verbindingsfout.') }
+    finally { setUploading(false); e.target.value = '' }
+  }
+
+  async function handleDeleteDoc(id: number) {
+    const token = localStorage.getItem('dossier_token')
+    await fetch(`http://localhost:8000/api/documents/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+    loadDocuments(token!)
+  }
+
+  function formatSize(bytes: number) {
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 
   async function handleSaveSearch(e: React.FormEvent) {
@@ -392,32 +436,49 @@ export default function DossierDashboard() {
 
               {/* Right column */}
               <div className="flex flex-col gap-6">
-                {/* Documents */}
+                {/* Documents — real uploads */}
                 <div className="p-5" style={{ background: 'white', border: '1px solid rgba(14,59,40,0.08)', boxShadow: '0 2px 8px rgba(14,59,40,0.04)' }}>
-                  <h2 className="font-display font-bold text-sm uppercase tracking-wider mb-4" style={{ color: 'rgba(14,59,40,0.4)' }}>Documenten</h2>
-                  <div className="flex flex-col gap-2">
-                    {[
-                      { name: 'Koopovereenkomst concept', status: 'Te ondertekenen', size: '245 KB' },
-                      { name: 'Taxatierapport',            status: 'Beschikbaar',    size: '1.2 MB' },
-                      { name: 'Energielabel certificaat',  status: 'Beschikbaar',    size: '180 KB' },
-                    ].map((doc, i) => (
-                      <div key={i} className="flex items-center gap-3 p-3 cursor-pointer transition-colors hover:opacity-80"
-                        style={{
-                          background: doc.status === 'Te ondertekenen' ? 'rgba(47,197,134,0.06)' : 'rgba(14,59,40,0.03)',
-                          border:     doc.status === 'Te ondertekenen' ? '1px solid rgba(47,197,134,0.2)' : '1px solid rgba(14,59,40,0.06)',
-                        }}>
-                        <FileText size={16} color={doc.status === 'Te ondertekenen' ? '#2fc586' : 'rgba(14,59,40,0.3)'} />
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-semibold truncate" style={{ color: '#0e3b28' }}>{doc.name}</div>
-                          <div className="text-xs" style={{ color: 'rgba(14,59,40,0.4)' }}>{doc.size}</div>
-                        </div>
-                        <span className="text-xs font-semibold px-2 py-0.5 flex-shrink-0"
-                          style={{ background: doc.status === 'Te ondertekenen' ? '#2fc586' : 'rgba(14,59,40,0.06)', color: doc.status === 'Te ondertekenen' ? '#061a11' : 'rgba(14,59,40,0.5)' }}>
-                          {doc.status}
-                        </span>
-                      </div>
-                    ))}
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="font-display font-bold text-sm uppercase tracking-wider" style={{ color: 'rgba(14,59,40,0.4)' }}>Documenten</h2>
+                    <label className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 cursor-pointer"
+                      style={{ background: 'rgba(47,197,134,0.1)', color: '#0e3b28', border: '1px solid rgba(47,197,134,0.25)' }}>
+                      <Upload size={11} />
+                      {uploading ? 'Uploaden...' : '+ Upload'}
+                      <input type="file" className="hidden" onChange={handleUpload} disabled={uploading}
+                        accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" />
+                    </label>
                   </div>
+                  {uploadError && (
+                    <p className="text-xs p-2 mb-3" style={{ background: 'rgba(184,64,51,0.08)', border: '1px solid rgba(184,64,51,0.2)', color: '#b84033' }}>
+                      {uploadError}
+                    </p>
+                  )}
+                  {documents.length === 0 ? (
+                    <p className="text-xs" style={{ color: 'rgba(14,59,40,0.35)' }}>
+                      Nog geen documenten geüpload. Upload PDF, afbeeldingen of Word-bestanden.
+                    </p>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {documents.map(doc => (
+                        <div key={doc.id} className="flex items-center gap-3 p-3"
+                          style={{ background: 'rgba(14,59,40,0.03)', border: '1px solid rgba(14,59,40,0.06)' }}>
+                          <FileText size={16} color="rgba(14,59,40,0.3)" />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-semibold truncate" style={{ color: '#0e3b28' }}>{doc.original_name}</div>
+                            <div className="text-xs" style={{ color: 'rgba(14,59,40,0.4)' }}>{formatSize(doc.file_size)}</div>
+                          </div>
+                          <button onClick={() => window.open(`http://localhost:8000/api/documents/${doc.id}/download`, '_blank')}
+                            className="opacity-40 hover:opacity-100 transition-opacity mr-1" title="Download">
+                            <Download size={14} color="#0e3b28" />
+                          </button>
+                          <button onClick={() => handleDeleteDoc(doc.id)}
+                            className="opacity-30 hover:opacity-100 transition-opacity" title="Verwijderen">
+                            <Trash2 size={14} color="#b84033" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Makelaar */}

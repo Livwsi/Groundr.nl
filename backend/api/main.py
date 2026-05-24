@@ -28,7 +28,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config.settings import settings
 from db.connection import init_db
-from api.routes import properties, analytics, auth, listings, submissions, viewings, meldingen, searches
+from api.routes import properties, analytics, auth, listings, submissions, viewings, meldingen, searches, documents
 # Set up logging so we can see what is happening
 logging.basicConfig(
     level   = logging.INFO,
@@ -156,7 +156,11 @@ app.include_router(
     tags=["Searches"],
 )
 
-
+app.include_router(
+    documents.router,
+    prefix="/api/documents",
+    tags=["Documents"],
+)
 
 # ─────────────────────────────────────────────────────────────
 # HEALTH CHECK ENDPOINT
