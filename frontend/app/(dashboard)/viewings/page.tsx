@@ -2,364 +2,209 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Calendar, Clock, User, Phone, CheckCircle, XCircle, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, Home, MapPin, CheckCircle, XCircle } from 'lucide-react'
+import LanguageToggle from '@/components/ui/LanguageToggle'
+import { useLanguage } from '@/store/language'
 
-interface ViewingRequest {
-  id:             number
-  date:           string
-  time:           string
-  status:         string
-  buyer_name:     string
-  buyer_phone:    string
-  message:        string | null
-  rejection_note: string | null
-  created_at:     string
-  listing_ref:    string | null
-  property:       { street: string; house_number: string; city: string } | null
+interface Submission {
+  id: number; reference: string; status: string; urgency: string
+  asking_price: number | null; show_price: boolean; description: string | null
+  bid_deadline: string | null; created_at: string
+  seller: { id: number; email: string; full_name: string | null }
+  property: { id: number; street: string; house_number: string; city: string; area_m2: number | null }
 }
 
-interface Slot {
-  id:          number
-  day_of_week: number
-  day_name:    string
-  start_time:  string
-  end_time:    string
+function formatPrice(price: number) {
+  return new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(price)
 }
 
-const DAYS = ['Maandag','Dinsdag','Woensdag','Donderdag','Vrijdag','Zaterdag','Zondag']
+export default function ApprovalsPage() {
+  const { t, lang } = useLanguage()
+  const nl = lang === 'nl'
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  pending:   { label: 'In afwachting', color: '#c47c1a', bg: 'rgba(196,124,26,0.1)' },
-  confirmed: { label: 'Bevestigd',     color: '#00b37e', bg: 'rgba(0,179,126,0.1)' },
-  rejected:  { label: 'Afgewezen',     color: '#b84033', bg: 'rgba(184,64,51,0.1)' },
-}
+  const [submissions,   setSubmissions]   = useState<Submission[]>([])
+  const [loading,       setLoading]       = useState(true)
+  const [error,         setError]         = useState('')
+  const [actionLoading, setActionLoading] = useState<number | null>(null)
+  const [rejectNote,    setRejectNote]    = useState('')
+  const [rejectingId,   setRejectingId]   = useState<number | null>(null)
 
-export default function ViewingsPage() {
-  const [requests,     setRequests]     = useState<ViewingRequest[]>([])
-  const [slots,        setSlots]        = useState<Slot[]>([])
-  const [loading,      setLoading]      = useState(true)
-  const [actionId,     setActionId]     = useState<number | null>(null)
-  const [rejectingId,  setRejectingId]  = useState<number | null>(null)
-  const [rejectNote,   setRejectNote]   = useState('')
-  const [tab,          setTab]          = useState<'requests' | 'availability'>('requests')
-  const [newSlot,      setNewSlot]      = useState({ day_of_week: 0, start_time: '09:00', end_time: '17:00' })
-  const [savingSlot,   setSavingSlot]   = useState(false)
+  useEffect(() => { loadSubmissions() }, [])
 
-  useEffect(() => {
-    loadAll()
-  }, [])
-
-  async function loadAll() {
+  async function loadSubmissions() {
     setLoading(true)
-    const token = localStorage.getItem('token')
     try {
-      const [reqRes, slotRes] = await Promise.all([
-        fetch('http://localhost:8000/api/viewings/requests', {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch('http://localhost:8000/api/viewings/availability/1'),
-      ])
-      const reqData  = await reqRes.json()
-      const slotData = await slotRes.json()
-      setRequests(reqData.requests || [])
-      setSlots(slotData.slots || [])
-    } catch {}
+      const token = localStorage.getItem('token')
+      const res   = await fetch('http://localhost:8000/api/submissions/pending', { headers: { Authorization: `Bearer ${token}` } })
+      const data  = await res.json()
+      setSubmissions(data.submissions || [])
+    } catch { setError(t('common.error')) }
     finally { setLoading(false) }
   }
 
-  async function confirm(id: number) {
-    setActionId(id)
-    const token = localStorage.getItem('token')
-    await fetch(`http://localhost:8000/api/viewings/${id}/confirm`, {
-      method: 'POST', headers: { Authorization: `Bearer ${token}` },
-    })
-    setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'confirmed' } : r))
-    setActionId(null)
+  async function handleApprove(id: number) {
+    setActionLoading(id)
+    try {
+      const token = localStorage.getItem('token')
+      const res   = await fetch(`http://localhost:8000/api/submissions/${id}/approve`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
+      if (res.ok) setSubmissions(prev => prev.filter(s => s.id !== id))
+    } catch { setError(t('common.error')) }
+    finally { setActionLoading(null) }
   }
 
-  async function reject(id: number) {
-    setActionId(id)
-    const token = localStorage.getItem('token')
-    await fetch(`http://localhost:8000/api/viewings/${id}/reject`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body:    JSON.stringify({ note: rejectNote }),
-    })
-    setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'rejected', rejection_note: rejectNote } : r))
-    setRejectingId(null)
-    setRejectNote('')
-    setActionId(null)
+  async function handleReject(id: number) {
+    setActionLoading(id)
+    try {
+      const token = localStorage.getItem('token')
+      const res   = await fetch(`http://localhost:8000/api/submissions/${id}/reject`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ note: rejectNote }),
+      })
+      if (res.ok) { setSubmissions(prev => prev.filter(s => s.id !== id)); setRejectingId(null); setRejectNote('') }
+    } catch { setError(t('common.error')) }
+    finally { setActionLoading(null) }
   }
 
-  async function addSlot() {
-    setSavingSlot(true)
-    const token = localStorage.getItem('token')
-    const res = await fetch('http://localhost:8000/api/viewings/availability', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body:    JSON.stringify(newSlot),
-    })
-    if (res.ok) loadAll()
-    setSavingSlot(false)
-  }
+  const urgencyLabel = (u: string) => ({
+    normal: nl ? 'Normaal' : 'Normal',
+    urgent: 'Urgent',
+    asap:   nl ? 'Moet weg' : 'ASAP',
+  }[u] || u)
 
-  async function deleteSlot(slotId: number) {
-    const token = localStorage.getItem('token')
-    await fetch(`http://localhost:8000/api/viewings/availability/${slotId}`, {
-      method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
-    })
-    setSlots(prev => prev.filter(s => s.id !== slotId))
-  }
-
-  const pending   = requests.filter(r => r.status === 'pending').length
-  const confirmed = requests.filter(r => r.status === 'confirmed').length
+  const urgencyColor = (u: string) => ({
+    normal: { color: '#2fc586', bg: 'rgba(47,197,134,0.1)' },
+    urgent: { color: '#c47c1a', bg: 'rgba(196,124,26,0.1)' },
+    asap:   { color: '#b84033', bg: 'rgba(184,64,51,0.1)' },
+  }[u] || { color: '#2fc586', bg: 'rgba(47,197,134,0.1)' })
 
   return (
     <div className="min-h-screen bg-g900">
-
-      {/* Nav */}
       <nav className="bg-g800 border-b border-g700 px-6 h-14 flex items-center gap-4">
-        <Link href="/dashboard" className="text-g300 opacity-50 hover:opacity-100 transition-opacity">
-          <ArrowLeft size={16} />
-        </Link>
+        <Link href="/dashboard" className="text-g300 opacity-50 hover:opacity-100 transition-opacity"><ArrowLeft size={16} /></Link>
         <img src="/logo.svg" alt="Groundr" className="h-10 w-auto" />
-        <span className="text-g300 opacity-30 text-sm">/ Bezichtigingen</span>
-        {pending > 0 && (
+        <span className="text-g300 opacity-30 text-sm">/ {t('approvals.title')}</span>
+        {submissions.length > 0 && (
           <span className="font-mono text-xs font-bold px-2 py-0.5 ml-1"
             style={{ background: 'rgba(196,124,26,0.15)', color: '#c47c1a', border: '1px solid rgba(196,124,26,0.3)' }}>
-            {pending} wachtend
+            {submissions.length} {nl ? 'wachtend' : 'pending'}
           </span>
         )}
+        <div className="ml-auto"><LanguageToggle /></div>
       </nav>
 
       <div className="max-w-4xl mx-auto px-6 py-8">
-
-        <div className="mb-6">
-          <h1 className="font-display text-2xl font-bold text-white tracking-tight">Bezichtigingen</h1>
-          <p className="text-sm text-g300 opacity-50 mt-1">Beheer aanvragen en stel uw beschikbaarheid in</p>
+        <div className="mb-8">
+          <h1 className="font-display text-2xl font-bold text-white tracking-tight">{t('approvals.pending')}</h1>
+          <p className="text-sm text-g300 opacity-50 mt-1">{nl ? 'Woningen die verkopers hebben aangemeld voor uw microsite.' : 'Properties submitted by sellers for your microsite.'}</p>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          {[
-            { label: 'In afwachting', value: pending,   color: '#c47c1a' },
-            { label: 'Bevestigd',     value: confirmed, color: '#00b37e' },
-            { label: 'Totaal',        value: requests.length, color: 'white' },
-          ].map((s, i) => (
-            <div key={i} className="bg-g800 border border-g700 p-4">
-              <div className="text-xs text-g300 opacity-40 mb-1">{s.label}</div>
-              <div className="font-mono text-2xl font-bold" style={{ color: s.color }}>{s.value}</div>
-            </div>
-          ))}
-        </div>
+        {error && <div className="bg-red-900/30 border border-red-700/40 text-red-300 text-sm px-4 py-3 mb-6">{error}</div>}
+        {loading && <div className="text-center py-16 text-g300 opacity-40 text-sm">{t('common.loading')}</div>}
 
-        {/* Tab bar */}
-        <div className="flex gap-0 mb-6 border-b border-g700">
-          {[
-            { key: 'requests',     label: 'Aanvragen' },
-            { key: 'availability', label: 'Mijn beschikbaarheid' },
-          ].map(t => (
-            <button key={t.key} onClick={() => setTab(t.key as any)}
-              className="px-5 py-3 text-sm font-semibold transition-all"
-              style={{
-                borderBottom: tab === t.key ? '2px solid #00b37e' : '2px solid transparent',
-                color:        tab === t.key ? '#00b37e' : 'rgba(255,255,255,0.3)',
-                marginBottom: '-1px',
-              }}>
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        {loading && (
-          <div className="text-center py-16 text-g300 opacity-40 text-sm">Laden...</div>
-        )}
-
-        {/* ── REQUESTS TAB ── */}
-        {!loading && tab === 'requests' && (
-          <div className="flex flex-col gap-3">
-            {requests.length === 0 && (
-              <div className="flex flex-col items-center py-20 text-center">
-                <div className="w-14 h-14 bg-g800 border border-g700 flex items-center justify-center mb-4">
-                  <Calendar size={22} className="text-g400" />
-                </div>
-                <p className="text-white font-semibold mb-1">Geen aanvragen</p>
-                <p className="text-g300 opacity-40 text-sm">Bezichtigingsverzoeken verschijnen hier</p>
-              </div>
-            )}
-
-            {requests.map(req => {
-              const sc = STATUS_CONFIG[req.status] || STATUS_CONFIG.pending
-              return (
-                <div key={req.id} className="bg-g800 border border-g700 overflow-hidden">
-                  {/* Header */}
-                  <div className="p-5 flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 bg-g700 flex items-center justify-center flex-shrink-0">
-                        <Calendar size={16} className="text-g400" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <div className="font-semibold text-white">
-                            {new Date(req.date).toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' })}
-                          </div>
-                          <span className="font-mono text-sm font-bold text-g400">{req.time}</span>
-                        </div>
-                        {req.property && (
-                          <div className="text-xs text-g300 opacity-50">
-                            {req.property.street} {req.property.house_number}, {req.property.city}
-                            {req.listing_ref && <span className="ml-2 font-mono text-g400">{req.listing_ref}</span>}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <span className="text-xs font-bold px-2 py-1 flex-shrink-0"
-                      style={{ background: sc.bg, color: sc.color, border: `1px solid ${sc.color}30` }}>
-                      {sc.label}
-                    </span>
-                  </div>
-
-                  {/* Buyer info */}
-                  <div className="px-5 pb-4 grid grid-cols-2 gap-3 border-t border-g700/50 pt-4">
-                    <div className="flex items-center gap-2 text-sm">
-                      <User size={13} className="text-g400" />
-                      <span className="text-white">{req.buyer_name}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <Phone size={13} className="text-g400" />
-                      <span className="text-white">{req.buyer_phone}</span>
-                    </div>
-                    {req.message && (
-                      <div className="col-span-2 text-xs text-g300 opacity-60 italic">
-                        "{req.message}"
-                      </div>
-                    )}
-                    {req.rejection_note && (
-                      <div className="col-span-2 text-xs" style={{ color: '#b84033' }}>
-                        Reden: {req.rejection_note}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Reject note input */}
-                  {rejectingId === req.id && (
-                    <div className="px-5 pb-4 border-t border-g700/50 pt-4">
-                      <textarea
-                        value={rejectNote}
-                        onChange={e => setRejectNote(e.target.value)}
-                        placeholder="Reden voor afwijzing (optioneel)..."
-                        rows={2}
-                        className="w-full bg-g900 border border-g700 text-white placeholder-white/20 px-3 py-2 text-sm outline-none resize-none focus:border-g400"
-                      />
-                    </div>
-                  )}
-
-                  {/* Actions */}
-                  {req.status === 'pending' && (
-                    <div className="px-5 pb-4 flex gap-3 border-t border-g700/50 pt-4">
-                      {rejectingId === req.id ? (
-                        <>
-                          <button onClick={() => reject(req.id)} disabled={actionId === req.id}
-                            className="flex items-center gap-2 px-4 py-2 text-sm font-bold disabled:opacity-50"
-                            style={{ background: '#b84033', color: 'white' }}>
-                            <XCircle size={14} />
-                            {actionId === req.id ? 'Bezig...' : 'Afwijzen'}
-                          </button>
-                          <button onClick={() => { setRejectingId(null); setRejectNote('') }}
-                            className="text-sm text-g300 opacity-50 hover:opacity-100 px-3">
-                            Annuleren
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button onClick={() => confirm(req.id)} disabled={actionId === req.id}
-                            className="flex items-center gap-2 px-5 py-2 text-sm font-bold disabled:opacity-50"
-                            style={{ background: '#00b37e', color: '#061a11' }}>
-                            <CheckCircle size={14} />
-                            {actionId === req.id ? 'Bezig...' : 'Bevestigen'}
-                          </button>
-                          <button onClick={() => setRejectingId(req.id)}
-                            className="flex items-center gap-2 px-5 py-2 text-sm font-semibold"
-                            style={{ background: 'rgba(184,64,51,0.1)', color: '#b84033', border: '1px solid rgba(184,64,51,0.3)' }}>
-                            <XCircle size={14} />
-                            Afwijzen
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+        {!loading && submissions.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="w-16 h-16 bg-g800 border border-g700 flex items-center justify-center mb-4"><CheckCircle size={24} className="text-g400" /></div>
+            <p className="text-white font-display font-bold mb-1">{t('approvals.empty')}</p>
+            <p className="text-g300 opacity-40 text-sm">{nl ? 'Alle aanmeldingen zijn beoordeeld.' : 'All submissions have been reviewed.'}</p>
           </div>
         )}
 
-        {/* ── AVAILABILITY TAB ── */}
-        {!loading && tab === 'availability' && (
-          <div>
-            {/* Add slot */}
-            <div className="bg-g800 border border-g700 p-5 mb-4">
-              <h3 className="font-semibold text-white mb-4">Beschikbaarheid toevoegen</h3>
-              <div className="grid grid-cols-3 gap-3 mb-4">
-                <div>
-                  <label className="block text-xs text-g300 opacity-50 mb-2 uppercase tracking-wider">Dag</label>
-                  <select value={newSlot.day_of_week}
-                    onChange={e => setNewSlot({...newSlot, day_of_week: parseInt(e.target.value)})}
-                    className="w-full bg-g900 border border-g700 text-white px-3 py-2.5 text-sm outline-none focus:border-g400">
-                    {DAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-g300 opacity-50 mb-2 uppercase tracking-wider">Vanaf</label>
-                  <select value={newSlot.start_time}
-                    onChange={e => setNewSlot({...newSlot, start_time: e.target.value})}
-                    className="w-full bg-g900 border border-g700 text-white px-3 py-2.5 text-sm outline-none focus:border-g400">
-                    {['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00'].map(t =>
-                      <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-g300 opacity-50 mb-2 uppercase tracking-wider">Tot</label>
-                  <select value={newSlot.end_time}
-                    onChange={e => setNewSlot({...newSlot, end_time: e.target.value})}
-                    className="w-full bg-g900 border border-g700 text-white px-3 py-2.5 text-sm outline-none focus:border-g400">
-                    {['10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00'].map(t =>
-                      <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-              </div>
-              <button onClick={addSlot} disabled={savingSlot}
-                className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold disabled:opacity-50"
-                style={{ background: '#00b37e', color: '#061a11' }}>
-                <Plus size={14} />
-                {savingSlot ? 'Opslaan...' : 'Slot toevoegen'}
-              </button>
-            </div>
-
-            {/* Existing slots */}
-            {slots.length === 0 ? (
-              <div className="text-center py-12 text-g300 opacity-40 text-sm">
-                Nog geen beschikbaarheid ingesteld. Voeg hierboven slots toe.
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {slots.map(slot => (
-                  <div key={slot.id} className="bg-g800 border border-g700 px-5 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <span className="font-semibold text-white w-24">{slot.day_name}</span>
-                      <div className="flex items-center gap-2 text-sm text-g300 opacity-70">
-                        <Clock size={13} className="text-g400" />
-                        {slot.start_time} – {slot.end_time}
+        {!loading && submissions.length > 0 && (
+          <div className="flex flex-col gap-4">
+            {submissions.map(sub => {
+              const uc = urgencyColor(sub.urgency)
+              return (
+                <div key={sub.id} className="bg-g800 border border-g700 overflow-hidden">
+                  <div className="p-5 border-b border-g700">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-4">
+                        <div className="w-10 h-10 bg-g700 flex items-center justify-center flex-shrink-0"><Home size={18} className="text-g400" /></div>
+                        <div>
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <div className="font-display font-bold text-white">{sub.property.street} {sub.property.house_number}</div>
+                            <span className="text-xs font-bold px-2 py-0.5" style={{ background: uc.bg, color: uc.color, border: `1px solid ${uc.color}30` }}>
+                              {urgencyLabel(sub.urgency)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 text-xs text-g300 opacity-50">
+                            <MapPin size={10} />{sub.property.city}{sub.property.area_m2 && ` · ${sub.property.area_m2} m²`}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <div className="font-mono text-xs text-g400 mb-0.5">{sub.reference}</div>
+                        <div className="text-xs text-g300 opacity-40">{new Date(sub.created_at).toLocaleDateString('nl-NL')}</div>
                       </div>
                     </div>
-                    <button onClick={() => deleteSlot(slot.id)}
-                      className="text-g300 opacity-30 hover:opacity-100 hover:text-red-400 transition-all">
-                      <Trash2 size={15} />
-                    </button>
                   </div>
-                ))}
-              </div>
-            )}
+
+                  <div className="p-5 grid grid-cols-3 gap-4 border-b border-g700">
+                    <div>
+                      <div className="text-xs text-g300 opacity-40 mb-1">{nl ? 'Verkoper' : 'Seller'}</div>
+                      <div className="text-sm text-white">{sub.seller.full_name || sub.seller.email}</div>
+                      <div className="text-xs text-g300 opacity-40">{sub.seller.email}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-g300 opacity-40 mb-1">{nl ? 'Vraagprijs' : 'Asking price'}</div>
+                      <div className="text-sm text-white font-mono">
+                        {sub.asking_price ? formatPrice(sub.asking_price) : <span className="text-g300 opacity-50">{nl ? 'Open bieding' : 'Open bid'}</span>}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-g300 opacity-40 mb-1">{nl ? 'Deadline' : 'Deadline'}</div>
+                      <div className="text-sm text-white">
+                        {sub.bid_deadline ? new Date(sub.bid_deadline).toLocaleDateString('nl-NL') : <span className="text-g300 opacity-50">{nl ? 'Geen deadline' : 'No deadline'}</span>}
+                      </div>
+                    </div>
+                    {sub.description && (
+                      <div className="col-span-3">
+                        <div className="text-xs text-g300 opacity-40 mb-1">{nl ? 'Omschrijving' : 'Description'}</div>
+                        <div className="text-sm text-g300 opacity-70">{sub.description}</div>
+                      </div>
+                    )}
+                  </div>
+
+                  {rejectingId === sub.id && (
+                    <div className="p-5 border-b border-g700 bg-g900/50">
+                      <label className="block text-xs font-semibold text-g300 opacity-70 mb-2 uppercase tracking-wider">
+                        {nl ? 'Reden voor afwijzing (optioneel)' : 'Reason for rejection (optional)'}
+                      </label>
+                      <textarea value={rejectNote} onChange={e => setRejectNote(e.target.value)}
+                        placeholder={nl ? 'Bijv. onvoldoende informatie...' : 'E.g. insufficient information...'}
+                        rows={2} className="w-full bg-g800 border border-g700 text-white placeholder-white/20 px-4 py-2 text-sm outline-none focus:border-g400 resize-none" />
+                    </div>
+                  )}
+
+                  <div className="p-4 flex items-center gap-3">
+                    {rejectingId === sub.id ? (
+                      <>
+                        <button onClick={() => handleReject(sub.id)} disabled={actionLoading === sub.id}
+                          className="flex items-center gap-2 px-4 py-2 text-sm font-bold disabled:opacity-50"
+                          style={{ background: '#b84033', color: 'white' }}>
+                          <XCircle size={14} />{actionLoading === sub.id ? '...' : (nl ? 'Definitief afwijzen' : 'Confirm rejection')}
+                        </button>
+                        <button onClick={() => { setRejectingId(null); setRejectNote('') }} className="px-4 py-2 text-sm text-g300 opacity-50 hover:opacity-100">
+                          {t('common.cancel')}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={() => handleApprove(sub.id)} disabled={actionLoading === sub.id}
+                          className="flex items-center gap-2 px-5 py-2 text-sm font-bold disabled:opacity-50"
+                          style={{ background: '#2fc586', color: '#061a11' }}>
+                          <CheckCircle size={14} />{actionLoading === sub.id ? '...' : t('approvals.approve')}
+                        </button>
+                        <button onClick={() => setRejectingId(sub.id)}
+                          className="flex items-center gap-2 px-5 py-2 text-sm font-semibold"
+                          style={{ background: 'rgba(184,64,51,0.1)', color: '#b84033', border: '1px solid rgba(184,64,51,0.3)' }}>
+                          <XCircle size={14} />{t('approvals.reject')}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
