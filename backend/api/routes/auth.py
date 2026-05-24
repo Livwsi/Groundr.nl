@@ -23,7 +23,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import ALGORITHM, require_user
-from config.settings import settings
+from config.settings import settings  # noqa: F401 — used in invite endpoint
 from db.connection import get_db
 from db.models import User
 
@@ -154,8 +154,16 @@ async def invite_client(
         VALUES (:token, :mid, :email, :expires_at)
     """), {"token": token, "mid": user.id, "email": body.email, "expires_at": expires_at})
 
-    invite_url = f"http://localhost:3000/dossier/join?token={token}"
+    invite_url = f"{settings.FRONTEND_URL}/dossier/join?token={token}"
     logger.info(f"[AUTH] Invite created by makelaar {user.id} for {body.email}")
+
+    # Send invite email
+    from services.email_service import email as email_service
+    await email_service.send_invite(
+        to=body.email,
+        makelaar_name=user.full_name or user.email,
+        invite_url=invite_url,
+    )
 
     return InviteResponse(invite_url=invite_url, email=body.email, expires_at=expires_at)
 

@@ -1,16 +1,8 @@
 # ─────────────────────────────────────────────────────────────
 # backend/api/routes/meldingen.py
-#
-# ENDPOINTS:
-#   POST /api/meldingen/              → report an issue
-#   GET  /api/meldingen/              → makelaar sees all
-#   GET  /api/meldingen/my            → reporter sees own
-#   POST /api/meldingen/{id}/resolve  → makelaar resolves
-#   POST /api/meldingen/{id}/close    → makelaar closes
 # ─────────────────────────────────────────────────────────────
 
 import logging
-from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -21,6 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.dependencies import require_user
 from db.connection import get_db
 from db.models import User
+from services.email_service import email
+from config.settings import settings
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -68,6 +62,27 @@ async def create_melding(
     })
     row = result.fetchone()
     logger.info(f"[MELDINGEN] User {user.id} created melding {row.id}")
+
+    # Notify makelaar by email
+    makelaar = await db.execute(text("""
+        SELECT u.email, u.full_name, p.street, p.house_number, p.city
+        FROM users u
+        LEFT JOIN properties p ON p.id = :pid
+        WHERE u.id = :mid
+    """), {"mid": body.makelaar_id, "pid": body.property_id})
+    m = makelaar.fetchone()
+
+    if m and m.email:
+        address = f"{m.street} {m.house_number}, {m.city}" if m.street else "een woning"
+        dashboard_url = f"{settings.FRONTEND_URL}/meldingen"
+        await email.send_new_melding(
+            to=m.email,
+            makelaar_name=m.full_name or "Makelaar",
+            title=body.title,
+            address=address,
+            dashboard_url=dashboard_url,
+        )
+
     return {"message": "Melding ingediend.", "melding_id": row.id}
 
 
@@ -76,7 +91,6 @@ async def get_meldingen(
     user: User         = Depends(require_user),
     db:   AsyncSession = Depends(get_db),
 ):
-    """Makelaar sees all meldingen assigned to them."""
     result = await db.execute(text("""
         SELECT
             m.id, m.title, m.description, m.category,
@@ -85,8 +99,8 @@ async def get_meldingen(
             p.street, p.house_number, p.city,
             u.email as reporter_email, u.full_name as reporter_name
         FROM meldingen m
-        LEFT JOIN properties p  ON m.property_id  = p.id
-        LEFT JOIN users u       ON m.reporter_id  = u.id
+        LEFT JOIN properties p ON m.property_id  = p.id
+        LEFT JOIN users u      ON m.reporter_id  = u.id
         WHERE m.makelaar_id = :mid
         ORDER BY
             CASE m.priority
@@ -96,11 +110,7 @@ async def get_meldingen(
             m.created_at DESC
     """), {"mid": user.id})
     rows = result.fetchall()
-
-    return {
-        "count": len(rows),
-        "meldingen": [_format(r) for r in rows],
-    }
+    return {"count": len(rows), "meldingen": [_format(r) for r in rows]}
 
 
 @router.get("/my")
@@ -108,7 +118,6 @@ async def my_meldingen(
     user: User         = Depends(require_user),
     db:   AsyncSession = Depends(get_db),
 ):
-    """Reporter sees their own meldingen."""
     result = await db.execute(text("""
         SELECT
             m.id, m.title, m.description, m.category,
@@ -137,7 +146,6 @@ async def resolve_melding(
         WHERE id = :mid AND makelaar_id = :uid
         RETURNING id
     """), {"mid": melding_id, "uid": user.id, "note": body.note})
-
     if not result.fetchone():
         raise HTTPException(status_code=404, detail="Melding niet gevonden")
     return {"message": "Melding opgelost"}
@@ -154,7 +162,6 @@ async def close_melding(
         WHERE id = :mid AND makelaar_id = :uid
         RETURNING id
     """), {"mid": melding_id, "uid": user.id})
-
     if not result.fetchone():
         raise HTTPException(status_code=404, detail="Melding niet gevonden")
     return {"message": "Melding gesloten"}

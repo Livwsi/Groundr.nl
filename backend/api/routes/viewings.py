@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.dependencies import require_user
 from db.connection import get_db
 from db.models import User
+from services.email_service import email
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -55,10 +56,7 @@ async def set_availability(
 
 
 @router.get("/availability/{makelaar_id}")
-async def get_availability(
-    makelaar_id: int,
-    db: AsyncSession = Depends(get_db),
-):
+async def get_availability(makelaar_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(text("""
         SELECT id, day_of_week, start_time, end_time
         FROM availability_slots
@@ -118,14 +116,14 @@ async def request_viewing(
         "sid":   body.submission_id,
         "mid":   body.makelaar_id,
         "bid":   user.id,
-        "date":  req_date,  # use the parsed date object, not the string
+        "date":  req_date,
         "time":  body.requested_time,
         "name":  body.buyer_name,
         "phone": body.buyer_phone,
         "msg":   body.message,
     })
     row = result.fetchone()
-    logger.info(f"[VIEWINGS] User {user.id} requested viewing on {body.requested_date} at {body.requested_time}")
+    logger.info(f"[VIEWINGS] User {user.id} requested viewing on {body.requested_date}")
     return {
         "message":    "Bezichtigingsverzoek ingediend. De makelaar neemt contact met u op.",
         "request_id": row.id,
@@ -182,7 +180,6 @@ async def my_viewings(
     user: User         = Depends(require_user),
     db:   AsyncSession = Depends(get_db),
 ):
-    """Buyer sees their own viewing requests. MUST be before /{request_id} routes."""
     result = await db.execute(text("""
         SELECT
             vr.id, vr.requested_date, vr.requested_time,
@@ -228,10 +225,33 @@ async def confirm_viewing(
         UPDATE viewing_requests
         SET status = 'confirmed', updated_at = NOW()
         WHERE id = :rid AND makelaar_id = :mid
-        RETURNING id
+        RETURNING id, buyer_name, requested_date, requested_time, buyer_id
     """), {"rid": request_id, "mid": user.id})
-    if not result.fetchone():
+    row = result.fetchone()
+    if not row:
         raise HTTPException(status_code=404, detail="Verzoek niet gevonden")
+
+    # Get property address + buyer email for notification
+    details = await db.execute(text("""
+        SELECT p.street, p.house_number, p.city, u.email as buyer_email
+        FROM viewing_requests vr
+        LEFT JOIN listing_submissions ls ON vr.submission_id = ls.id
+        LEFT JOIN properties p ON ls.property_id = p.id
+        LEFT JOIN users u ON vr.buyer_id = u.id
+        WHERE vr.id = :rid
+    """), {"rid": request_id})
+    d = details.fetchone()
+
+    if d and d.buyer_email:
+        address = f"{d.street} {d.house_number}, {d.city}" if d.street else "uw woning"
+        await email.send_viewing_confirmed(
+            to=d.buyer_email,
+            buyer_name=row.buyer_name,
+            address=address,
+            date=str(row.requested_date),
+            time=row.requested_time,
+        )
+
     logger.info(f"[VIEWINGS] Makelaar {user.id} confirmed request {request_id}")
     return {"message": "Bezichtiging bevestigd"}
 
@@ -247,8 +267,29 @@ async def reject_viewing(
         UPDATE viewing_requests
         SET status = 'rejected', rejection_note = :note, updated_at = NOW()
         WHERE id = :rid AND makelaar_id = :mid
-        RETURNING id
+        RETURNING id, buyer_name, buyer_id
     """), {"rid": request_id, "mid": user.id, "note": body.note})
-    if not result.fetchone():
+    row = result.fetchone()
+    if not row:
         raise HTTPException(status_code=404, detail="Verzoek niet gevonden")
+
+    # Get buyer email + address for notification
+    details = await db.execute(text("""
+        SELECT p.street, p.house_number, p.city, u.email as buyer_email
+        FROM viewing_requests vr
+        LEFT JOIN listing_submissions ls ON vr.submission_id = ls.id
+        LEFT JOIN properties p ON ls.property_id = p.id
+        LEFT JOIN users u ON vr.buyer_id = u.id
+        WHERE vr.id = :rid
+    """), {"rid": request_id})
+    d = details.fetchone()
+
+    if d and d.buyer_email:
+        address = f"{d.street} {d.house_number}, {d.city}" if d.street else "uw woning"
+        await email.send_viewing_rejected(
+            to=d.buyer_email,
+            buyer_name=row.buyer_name,
+            address=address,
+        )
+
     return {"message": "Bezichtiging afgewezen"}
