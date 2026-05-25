@@ -7,19 +7,25 @@ import InviteModal from '@/components/invite/InviteModal'
 import LanguageToggle from '@/components/ui/LanguageToggle'
 import { useLanguage } from '@/store/language'
 
+const S = {
+  bg: '#F4F6F9', surface: '#FFFFFF', surface2: '#F8FAFB', border: '#E2E5EA',
+  t1: '#0B1320', t2: '#44546A', t3: '#8A9BB0',
+  green: '#059669', greenLt: '#ECFDF5', greenTx: '#047857', greenRim: 'rgba(5,150,105,0.2)',
+  red: '#DC2626', redLt: '#FEF2F2', amber: '#D97706',
+  shadow: '0 1px 3px rgba(11,19,32,0.06)',
+}
+
 interface Listing {
   id: number; asking_price: number; status: string; listed_date: string
   property: { street: string; house_number: string; city: string; area_m2: number | null; energy_label: string }
 }
-interface NewListingForm {
-  address: string; asking_price: string; area_m2: string; bedrooms: string
-  property_type: string; energy_label: string; is_rental: boolean
-}
-const EMPTY_FORM: NewListingForm = { address: '', asking_price: '', area_m2: '', bedrooms: '', property_type: 'house', energy_label: 'unknown', is_rental: false }
 
-function formatPrice(price: number) {
-  return new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(price)
-}
+const EMPTY = { address: '', asking_price: '', area_m2: '', bedrooms: '', property_type: 'house', energy_label: 'unknown', is_rental: false }
+
+function formatPrice(p: number) { return new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(p) }
+
+const inp = { width: '100%', height: '40px', padding: '0 12px', background: S.surface, border: `1px solid ${S.border}`, fontFamily: 'inherit', fontSize: '13.5px', color: S.t1, outline: 'none' }
+const lbl = { display: 'block', fontSize: '11px', fontWeight: 500 as const, color: S.t3, textTransform: 'uppercase' as const, letterSpacing: '0.06em', marginBottom: '5px' }
 
 export default function ListingsPage() {
   const router = useRouter()
@@ -30,7 +36,7 @@ export default function ListingsPage() {
   const [loading,    setLoading]    = useState(true)
   const [showForm,   setShowForm]   = useState(false)
   const [showInvite, setShowInvite] = useState(false)
-  const [form,       setForm]       = useState<NewListingForm>(EMPTY_FORM)
+  const [form,       setForm]       = useState(EMPTY)
   const [saving,     setSaving]     = useState(false)
   const [error,      setError]      = useState('')
   const [success,    setSuccess]    = useState('')
@@ -49,23 +55,17 @@ export default function ListingsPage() {
   }
 
   async function handleAdd(e: React.FormEvent) {
-    e.preventDefault()
-    setSaving(true); setError(''); setSuccess('')
+    e.preventDefault(); setSaving(true); setError(''); setSuccess('')
     try {
       const token = localStorage.getItem('token')
       const res   = await fetch('http://localhost:8000/api/listings/', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          address: form.address, asking_price: parseFloat(form.asking_price),
-          area_m2: form.area_m2 ? parseFloat(form.area_m2) : null,
-          bedrooms: form.bedrooms ? parseInt(form.bedrooms) : null,
-          property_type: form.property_type, energy_label: form.energy_label, is_rental: form.is_rental,
-        }),
+        body: JSON.stringify({ address: form.address, asking_price: parseFloat(form.asking_price), area_m2: form.area_m2 ? parseFloat(form.area_m2) : null, bedrooms: form.bedrooms ? parseInt(form.bedrooms) : null, property_type: form.property_type, energy_label: form.energy_label, is_rental: form.is_rental }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.detail || t('common.error')); return }
       setSuccess(`${nl ? 'Listing aangemaakt' : 'Listing created'}: ${data.property.street} ${data.property.house_number}`)
-      setForm(EMPTY_FORM); setShowForm(false); loadListings()
+      setForm(EMPTY); setShowForm(false); loadListings()
     } catch { setError(t('common.error')) }
     finally { setSaving(false) }
   }
@@ -79,140 +79,122 @@ export default function ListingsPage() {
     } catch { setError(t('common.error')) }
   }
 
-  const PROP_TYPES = [
-    { value: 'house',        label: t('type.house') },
-    { value: 'apartment',    label: t('type.apartment') },
-    { value: 'villa',        label: t('type.villa') },
-    { value: 'townhouse',    label: t('type.townhouse') },
-    { value: 'semi_detached',label: t('type.semi_detached') },
-    { value: 'detached',     label: t('type.detached') },
-    { value: 'studio',       label: t('type.studio') },
-  ]
+  const PROP_TYPES = [['house', nl?'Woning':'House'],['apartment',nl?'Appartement':'Apartment'],['villa','Villa'],['townhouse',nl?'Tussenwoning':'Townhouse'],['semi_detached',nl?'2-onder-1-kap':'Semi-detached'],['detached',nl?'Vrijstaand':'Detached'],['studio','Studio']]
 
   return (
-    <div className="min-h-screen bg-g900">
+    <div style={{ minHeight: '100vh', background: S.bg, fontFamily: "'DM Sans', sans-serif" }}>
       {showInvite && <InviteModal onClose={() => setShowInvite(false)} />}
 
-      <nav className="bg-g800 border-b border-g700 px-6 h-14 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button onClick={() => router.push('/dashboard')} className="text-g300 opacity-50 hover:opacity-100 transition-opacity"><ArrowLeft size={16} /></button>
-          <span className="font-display font-bold text-lg text-white tracking-tight">Groun<span className="text-g400">dr</span></span>
-          <span className="text-g300 opacity-30 text-sm">/ {t('listings.title')}</span>
+      <nav style={{ background: S.surface, borderBottom: `1px solid ${S.border}`, height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 32px', position: 'sticky', top: 0, zIndex: 100, boxShadow: S.shadow }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <button onClick={() => router.push('/dashboard')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: S.t3, display: 'flex', alignItems: 'center' }}><ArrowLeft size={16} /></button>
+          <img src="/logo.svg" alt="Groundr" style={{ height: '32px' }} />
+          <span style={{ color: S.border }}>·</span>
+          <span style={{ fontSize: '13.5px', color: S.t2 }}>{t('listings.title')}</span>
         </div>
-        <div className="flex items-center gap-3">
-          <button onClick={() => setShowInvite(true)}
-            className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 transition-opacity"
-            style={{ background: 'rgba(47,197,134,0.1)', color: '#2fc586', border: '1px solid rgba(47,197,134,0.25)' }}>
-            {t('nav.invite')}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button onClick={() => setShowInvite(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '32px', padding: '0 12px', background: S.greenLt, color: S.greenTx, border: `1px solid ${S.greenRim}`, fontSize: '12.5px', fontWeight: 500, cursor: 'pointer' }}>
+            + {nl ? 'Klant uitnodigen' : 'Invite client'}
           </button>
           <LanguageToggle />
-          <button onClick={() => { setShowForm(!showForm); setError(''); setSuccess('') }}
-            className="flex items-center gap-2 bg-g400 text-g900 font-bold px-4 py-2 text-sm hover:bg-g300 transition-colors">
-            <Plus size={14} />{t('listings.add')}
+          <button onClick={() => { setShowForm(!showForm); setError(''); setSuccess('') }} style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '32px', padding: '0 14px', background: S.green, color: 'white', border: `1px solid ${S.green}`, fontSize: '12.5px', fontWeight: 500, cursor: 'pointer' }}>
+            <Plus size={13} />{t('listings.add')}
           </button>
         </div>
       </nav>
 
-      <div className="max-w-4xl mx-auto px-6 py-8">
+      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '32px' }}>
+
         {showForm && (
-          <div className="bg-g800 border border-g700 p-6 mb-8">
-            <h2 className="font-display font-bold text-white mb-4">{nl ? 'Nieuwe listing toevoegen' : 'Add new listing'}</h2>
-            {error && <div className="bg-red-900/30 border border-red-700/40 text-red-300 text-sm px-4 py-3 mb-4">{error}</div>}
-            <form onSubmit={handleAdd} className="grid grid-cols-2 gap-4">
-              <div className="col-span-2">
-                <label className="block text-xs font-semibold text-g300 opacity-70 mb-2 uppercase tracking-wider">{t('listings.address')} *</label>
-                <input type="text" value={form.address} onChange={e => setForm({...form, address: e.target.value})}
-                  placeholder="Stratumsedijk 23 Eindhoven" required
-                  className="w-full bg-g900 border border-g700 text-white placeholder-white/20 px-4 py-3 text-sm outline-none focus:border-g400 transition-colors" />
+          <div style={{ background: S.surface, border: `1px solid ${S.border}`, boxShadow: S.shadow, padding: '24px', marginBottom: '24px' }}>
+            <div style={{ fontSize: '15px', fontWeight: 600, color: S.t1, marginBottom: '20px' }}>{nl ? 'Nieuwe listing toevoegen' : 'Add new listing'}</div>
+            {error && <div style={{ background: S.redLt, border: `1px solid rgba(220,38,38,0.2)`, color: S.red, fontSize: '13px', padding: '10px 14px', marginBottom: '16px' }}>{error}</div>}
+            <form onSubmit={handleAdd}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label style={lbl}>{t('listings.address')} *</label>
+                  <input type="text" value={form.address} onChange={e => setForm({...form, address: e.target.value})} placeholder="Stratumsedijk 23 Eindhoven" required style={inp} />
+                </div>
+                <div><label style={lbl}>{t('listings.price')} *</label><input type="number" value={form.asking_price} onChange={e => setForm({...form, asking_price: e.target.value})} placeholder="485000" required style={inp} /></div>
+                <div><label style={lbl}>{t('listings.area')}</label><input type="number" value={form.area_m2} onChange={e => setForm({...form, area_m2: e.target.value})} placeholder="142" style={inp} /></div>
+                <div><label style={lbl}>{t('listings.bedrooms')}</label><input type="number" value={form.bedrooms} onChange={e => setForm({...form, bedrooms: e.target.value})} placeholder="4" style={inp} /></div>
+                <div>
+                  <label style={lbl}>{t('listings.type')}</label>
+                  <select value={form.property_type} onChange={e => setForm({...form, property_type: e.target.value})} style={inp}>
+                    {PROP_TYPES.map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+                  </select>
+                </div>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label style={lbl}>{t('listings.energy')}</label>
+                  <select value={form.energy_label} onChange={e => setForm({...form, energy_label: e.target.value})} style={{...inp, width: '50%'}}>
+                    <option value="unknown">{nl ? 'Onbekend' : 'Unknown'}</option>
+                    {['A','A+','A++','B','C','D','E','F','G'].map(l => <option key={l} value={l}>{l}</option>)}
+                  </select>
+                </div>
+                <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input type="checkbox" id="is_rental" checked={form.is_rental} onChange={e => setForm({...form, is_rental: e.target.checked})} />
+                  <label htmlFor="is_rental" style={{ fontSize: '13.5px', color: S.t2, cursor: 'pointer' }}>{t('listings.rental')}</label>
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-g300 opacity-70 mb-2 uppercase tracking-wider">{t('listings.price')} *</label>
-                <input type="number" value={form.asking_price} onChange={e => setForm({...form, asking_price: e.target.value})}
-                  placeholder="485000" required
-                  className="w-full bg-g900 border border-g700 text-white placeholder-white/20 px-4 py-3 text-sm outline-none focus:border-g400 transition-colors" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-g300 opacity-70 mb-2 uppercase tracking-wider">{t('listings.area')}</label>
-                <input type="number" value={form.area_m2} onChange={e => setForm({...form, area_m2: e.target.value})} placeholder="142"
-                  className="w-full bg-g900 border border-g700 text-white placeholder-white/20 px-4 py-3 text-sm outline-none focus:border-g400 transition-colors" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-g300 opacity-70 mb-2 uppercase tracking-wider">{t('listings.bedrooms')}</label>
-                <input type="number" value={form.bedrooms} onChange={e => setForm({...form, bedrooms: e.target.value})} placeholder="4"
-                  className="w-full bg-g900 border border-g700 text-white placeholder-white/20 px-4 py-3 text-sm outline-none focus:border-g400 transition-colors" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-g300 opacity-70 mb-2 uppercase tracking-wider">{t('listings.type')}</label>
-                <select value={form.property_type} onChange={e => setForm({...form, property_type: e.target.value})}
-                  className="w-full bg-g900 border border-g700 text-white px-4 py-3 text-sm outline-none focus:border-g400 transition-colors">
-                  {PROP_TYPES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-g300 opacity-70 mb-2 uppercase tracking-wider">{t('listings.energy')}</label>
-                <select value={form.energy_label} onChange={e => setForm({...form, energy_label: e.target.value})}
-                  className="w-full bg-g900 border border-g700 text-white px-4 py-3 text-sm outline-none focus:border-g400 transition-colors">
-                  <option value="unknown">{t('type.unknown')}</option>
-                  {['A','A+','A++','B','C','D','E','F','G'].map(l => <option key={l} value={l}>{l}</option>)}
-                </select>
-              </div>
-              <div className="col-span-2 flex items-center gap-3">
-                <input type="checkbox" id="is_rental" checked={form.is_rental} onChange={e => setForm({...form, is_rental: e.target.checked})} className="w-4 h-4 accent-g400" />
-                <label htmlFor="is_rental" className="text-sm text-g300 opacity-70 cursor-pointer">{t('listings.rental')}</label>
-              </div>
-              <div className="col-span-2 flex gap-3 pt-2">
-                <button type="submit" disabled={saving} className="bg-g400 text-g900 font-bold px-6 py-2.5 text-sm hover:bg-g300 transition-colors disabled:opacity-50">
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button type="submit" disabled={saving} style={{ height: '36px', padding: '0 18px', background: S.green, color: 'white', border: `1px solid ${S.green}`, fontSize: '13px', fontWeight: 500, cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>
                   {saving ? t('common.loading') : t('listings.save')}
                 </button>
-                <button type="button" onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setError('') }}
-                  className="bg-g700 text-g300 font-semibold px-6 py-2.5 text-sm">{t('listings.cancel')}</button>
+                <button type="button" onClick={() => { setShowForm(false); setForm(EMPTY); setError('') }} style={{ height: '36px', padding: '0 14px', background: S.surface, color: S.t2, border: `1px solid ${S.border}`, fontSize: '13px', cursor: 'pointer' }}>
+                  {t('listings.cancel')}
+                </button>
               </div>
             </form>
           </div>
         )}
 
-        {success && <div className="bg-g400/10 border border-g400/30 text-g400 text-sm px-4 py-3 mb-6">{success}</div>}
+        {success && <div style={{ background: S.greenLt, border: `1px solid ${S.greenRim}`, color: S.greenTx, fontSize: '13px', padding: '10px 14px', marginBottom: '20px' }}>{success}</div>}
 
-        <div className="flex items-center justify-between mb-6">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
           <div>
-            <h1 className="font-display text-2xl font-bold text-white tracking-tight">{t('listings.title')}</h1>
-            <p className="text-sm text-g300 opacity-50 mt-1">{listings.length} {t('listings.subtitle')}</p>
+            <h1 style={{ fontSize: '22px', fontWeight: 600, color: S.t1, letterSpacing: '-0.3px' }}>{t('listings.title')}</h1>
+            <p style={{ fontSize: '13px', color: S.t3, marginTop: '3px' }}>{listings.length} {t('listings.subtitle')}</p>
           </div>
         </div>
 
-        {loading && <div className="text-center py-16 text-g300 opacity-40 text-sm">{t('common.loading')}</div>}
+        {loading && <div style={{ textAlign: 'center', padding: '48px', color: S.t3, fontSize: '13px' }}>{t('common.loading')}</div>}
 
         {!loading && listings.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="w-16 h-16 bg-g800 border border-g700 flex items-center justify-center mb-4"><Home size={24} className="text-g400" /></div>
-            <p className="text-white font-display font-bold mb-1">{t('listings.empty')}</p>
-            <p className="text-g300 opacity-40 text-sm mb-4">{t('listings.empty_sub')}</p>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '64px 0', textAlign: 'center' }}>
+            <div style={{ width: '48px', height: '48px', background: S.surface, border: `1px solid ${S.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '14px', boxShadow: S.shadow }}><Home size={22} color={S.green} /></div>
+            <p style={{ fontSize: '15px', fontWeight: 600, color: S.t1, marginBottom: '4px' }}>{t('listings.empty')}</p>
+            <p style={{ fontSize: '13px', color: S.t3 }}>{t('listings.empty_sub')}</p>
           </div>
         )}
 
         {!loading && listings.length > 0 && (
-          <div className="flex flex-col gap-3">
-            {listings.map(listing => (
-              <div key={listing.id} className="bg-g800 border border-g700 p-5 flex items-center justify-between hover:border-g500 transition-colors">
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 bg-g700 flex items-center justify-center flex-shrink-0"><Home size={18} className="text-g400" /></div>
+          <div style={{ background: S.surface, border: `1px solid ${S.border}`, boxShadow: S.shadow, overflow: 'hidden' }}>
+            {listings.map((listing, i) => (
+              <div key={listing.id} style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: i < listings.length - 1 ? `1px solid ${S.border}` : 'none', transition: 'background 0.12s' }}
+                onMouseEnter={e => (e.currentTarget.style.background = S.surface2)}
+                onMouseLeave={e => (e.currentTarget.style.background = S.surface)}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <div style={{ width: '36px', height: '36px', background: S.greenLt, border: `1px solid ${S.greenRim}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Home size={16} color={S.green} />
+                  </div>
                   <div>
-                    <div className="font-display font-bold text-white">{listing.property.street} {listing.property.house_number}</div>
-                    <div className="flex items-center gap-1 text-xs text-g300 opacity-50 mt-0.5">
-                      <MapPin size={10} />{listing.property.city}
-                      {listing.property.area_m2 && <span className="ml-2">{listing.property.area_m2} m²</span>}
+                    <div style={{ fontSize: '14px', fontWeight: 500, color: S.t1 }}>{listing.property.street} {listing.property.house_number}</div>
+                    <div style={{ fontSize: '12px', color: S.t3, display: 'flex', alignItems: 'center', gap: '3px', marginTop: '2px' }}>
+                      <MapPin size={10} />{listing.property.city}{listing.property.area_m2 && ` · ${listing.property.area_m2} m²`}
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-6">
-                  <div className="text-right">
-                    <div className="font-mono font-semibold text-white">{formatPrice(listing.asking_price)}</div>
-                    <div className="text-xs mt-0.5" style={{ color: listing.status === 'active' ? '#2fc586' : 'rgba(255,255,255,0.4)' }}>
-                      {listing.status === 'active' ? t('listings.active') : listing.status}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '14px', fontWeight: 500, color: S.t1 }}>{formatPrice(listing.asking_price)}</div>
+                    <div style={{ fontSize: '11px', marginTop: '2px', color: listing.status === 'active' ? S.green : S.t3, fontWeight: 500 }}>
+                      {listing.status === 'active' ? (nl ? 'Actief' : 'Active') : listing.status}
                     </div>
                   </div>
-                  <button onClick={() => handleDelete(listing.id)} className="text-g300 opacity-30 hover:opacity-100 hover:text-red-400 transition-all" title={t('common.delete')}>
-                    <Trash2 size={16} />
+                  <button onClick={() => handleDelete(listing.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: S.t3, padding: '4px', display: 'flex', alignItems: 'center' }}
+                    onMouseEnter={e => (e.currentTarget.style.color = S.red)}
+                    onMouseLeave={e => (e.currentTarget.style.color = S.t3)}>
+                    <Trash2 size={15} />
                   </button>
                 </div>
               </div>

@@ -1,29 +1,160 @@
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Outfit:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Mono:wght@400;500&display=swap');
 
 @import "tailwindcss";
 
 @theme {
-  --color-g900: #061a11;
-  --color-g800: #0e3b28;
-  --color-g700: #165c3e;
-  --color-g600: #1e7d55;
-  --color-g500: #2dbe81;
-  --color-g400: #2fc586;
-  --color-g300: #71ddaf;
-  --color-g200: #b3ecd4;
-  --color-g100: #daf6ea;
-  --color-g50:  #f0faf5;
-  --color-amber: #c47c1a;
-  --color-terra: #b84033;
-  --color-sand:  #f7f3ee;
-  --color-muted: #5a7a6a;
+  /* ── Backgrounds ─────────────────────────────────────── */
+  --color-g900: #F4F6F9;   /* page background */
+  --color-g800: #FFFFFF;   /* card / surface */
+  --color-g700: #E2E5EA;   /* border */
+  --color-g600: #F8FAFB;   /* surface hover / input bg */
+
+  /* ── Primary green — Emerald ─────────────────────────── */
+  --color-g500: #ECFDF5;   /* tinted background */
+  --color-g400: #059669;   /* primary action */
+  --color-g300: #047857;   /* hover / darker green */
+  --color-g200: #D1FAE5;   /* light green fill */
+  --color-g100: #A7F3D0;
+  --color-g50:  #ECFDF5;
+
+  /* ── Text ─────────────────────────────────────────────── */
+  --color-text-primary:   #0B1320;
+  --color-text-secondary: #44546A;
+  --color-text-muted:     #8A9BB0;
+
+  /* ── Semantic ─────────────────────────────────────────── */
+  --color-amber: #D97706;
+  --color-terra: #DC2626;
+  --color-sand:  #FFFBEB;
+  --color-muted: #44546A;
+
+  /* ── Font ─────────────────────────────────────────────── */
+  --font-sans:    'DM Sans', sans-serif;
+  --font-mono:    'DM Mono', monospace;
+  --font-display: 'DM Sans', sans-serif;
+  --font-body:    'DM Sans', sans-serif;
 }
 
 * { box-sizing: border-box; }
 
 body {
-  font-family: var(--font-body);
-  background: #0a1f12;
-  color: white;
+  font-family: var(--font-sans);
+  background: #F4F6F9;
+  color: #0B1320;
   -webkit-font-smoothing: antialiased;
+  /* Subtle page grid — same as v2 mockup */
+  background-image:
+    radial-gradient(ellipse 80% 40% at 50% 0%, rgba(5,150,105,0.05) 0%, transparent 60%),
+    linear-gradient(rgba(5,150,105,0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(5,150,105,0.02) 1px, transparent 1px);
+  background-size: 100% 100%, 48px 48px, 48px 48px;
+  background-attachment: fixed;
+}
+
+/* ── Global resets for v2 style ──────────────────────── */
+
+/* Remove all border-radius — square edges everywhere */
+*, *::before, *::after {
+  border-radius: 0 !important;
+}
+
+/* Selection color */
+::selection {
+  background: rgba(5,150,105,0.15);
+  color: #0B1320;
+}
+
+/* Scrollbar — subtle */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #F4F6F9; }
+::-webkit-scrollbar-thumb { background: #C8CDD5; }
+::-webkit-scrollbar-thumb:hover { background: #8A9BB0; }
+
+/* Focus visible — green ring */
+:focus-visible {
+  outline: 2px solid #059669;
+  outline-offset: 2px;
+}
+
+/* ── Typography scale ─────────────────────────────────── */
+.font-display { font-family: var(--font-sans); }
+.font-mono    { font-family: var(--font-mono); }
+
+/* ── Utility overrides ────────────────────────────────── */
+
+/* text colors mapped to new palette */
+.text-g400    { color: #059669; }
+.text-g300    { color: #44546A; }
+.text-amber   { color: #D97706; }
+.text-terra   { color: #DC2626; }
+.text-white   { color: #0B1320; } /* white text → now dark text on light bg */
+
+/* bg colors */
+.bg-g900 { background-color: #F4F6F9; }
+.bg-g800 { background-color: #FFFFFF; }
+.bg-g700 { background-color: #E2E5EA; }
+.bg-g400 { background-color: #059669; }
+
+/* border colors */
+.border-g700 { border-color: #E2E5EA; }
+.border-g400 { border-color: #059669; }
+.border-g500 { border-color: #D1FAE5; }
+
+/* placeholder */
+.placeholder-white\/25::placeholder { color: #8A9BB0; }
+.placeholder-white\/20::placeholder { color: #8A9BB0; }
+
+/* ── Component tokens ─────────────────────────────────── */
+
+/* Cards */
+.card-surface {
+  background: #FFFFFF;
+  border: 1px solid #E2E5EA;
+  box-shadow: 0 1px 3px rgba(11,19,32,0.06), 0 1px 0 rgba(255,255,255,0.8) inset;
+}
+
+/* Buttons — primary */
+.btn-g {
+  background: #059669;
+  color: #FFFFFF;
+  border: 1px solid #059669;
+  box-shadow: 0 1px 3px rgba(5,150,105,0.2);
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.btn-g:hover {
+  background: #047857;
+  box-shadow: 0 2px 8px rgba(5,150,105,0.3);
+}
+
+/* Nav link active */
+.nav-active {
+  color: #0B1320;
+  font-weight: 500;
+  border-bottom: 2px solid #059669;
+}
+
+/* Status pills */
+.pill-success { background: #ECFDF5; color: #047857; border: 1px solid rgba(5,150,105,0.2); }
+.pill-warning { background: #FFFBEB; color: #D97706; border: 1px solid rgba(217,119,6,0.2); }
+.pill-danger  { background: #FEF2F2; color: #DC2626; border: 1px solid rgba(220,38,38,0.2); }
+.pill-neutral { background: #F8FAFB; color: #44546A; border: 1px solid #E2E5EA; }
+
+/* Input focus */
+.input-focus:focus {
+  border-color: #059669;
+  box-shadow: 0 0 0 3px rgba(5,150,105,0.1);
+  outline: none;
+}
+
+/* Hover row — tables */
+.table-row-hover:hover {
+  background: rgba(5,150,105,0.03);
+}
+
+/* Score gradient text */
+.score-gradient {
+  background: linear-gradient(180deg, #10b981 0%, #059669 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
