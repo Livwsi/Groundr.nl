@@ -1,38 +1,46 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-import { LanguageProvider } from "@/store/language";
+/**
+ * @file        app/layout.tsx
+ * @description Root layout for the Groundr platform.
+ *              Wraps the entire app in AuthProvider and LanguageProvider
+ *              so auth state and language are available everywhere.
+ *
+ *              Provider order (outer → inner):
+ *                LanguageProvider  — i18n (nl/en)
+ *                AuthProvider      — user, token, active role
+ *
+ * @layer       App → Root Layout
+ * @depends     store/auth.tsx, store/language.tsx
+ * @used-by     All pages
+ */
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import type { Metadata } from 'next'
+import { LanguageProvider } from '@/store/language'
+import { AuthProvider } from '@/store/auth'
+import './globals.css'
 
 export const metadata: Metadata = {
-  title: "Groundr — Dutch Real Estate Intelligence",
-  description: "Smart real estate platform for makelaars, buyers and sellers in the Netherlands.",
-};
+  title:       'Groundr — Real estate platform for professionals',
+  description: 'The all-in-one platform for Dutch real estate agents, appraisers and notaries.',
+}
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">
+    <html lang="nl">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body>
         <LanguageProvider>
-          {children}
+          <AuthProvider>
+            {children}
+          </AuthProvider>
         </LanguageProvider>
       </body>
     </html>
-  );
+  )
 }
