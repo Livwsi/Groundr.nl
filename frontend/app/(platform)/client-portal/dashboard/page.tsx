@@ -21,10 +21,15 @@ interface SavedSearch {
 }
 
 interface ViewingRequest {
-  id:         number
-  address:    string
-  status:     'pending' | 'confirmed' | 'rejected'
-  requested_at: string
+  id:     number
+  date:   string          // YYYY-MM-DD
+  time:   string          // HH:MM
+  status: 'pending' | 'confirmed' | 'rejected'
+  property?: {
+    street?:       string
+    house_number?: string
+    city?:         string
+  }
 }
 
 export default function BuyerDashboardPage() {
@@ -40,12 +45,14 @@ export default function BuyerDashboardPage() {
     const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {}
     try {
       const [sR, vR] = await Promise.all([
-        fetch(`${API_BASE}/api/searches`,          { headers }),
-        fetch(`${API_BASE}/api/viewings/requests`, { headers }),
+        fetch(`${API_BASE}/api/searches/`, { headers }),
+        // /api/viewings/requests is the agent view (filtered by makelaar).
+        // The buyer's own requests are on /my.
+        fetch(`${API_BASE}/api/viewings/my`, { headers }),
       ])
       const [sD, vD] = await Promise.all([sR.json(), vR.json()])
       setSearches(sD.searches  ?? [])
-      setViewings(vD.requests  ?? [])
+      setViewings(vD.viewings  ?? [])
     } catch { /* show empty states */ } finally {
       setLoading(false)
     }
@@ -114,8 +121,16 @@ export default function BuyerDashboardPage() {
           {viewings.slice(0, 6).map(v => (
             <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: `${SPACE[3]} 0`, borderBottom: `1px solid ${COLOR.border}` }}>
               <div>
-                <div style={{ fontSize: '13px', color: COLOR.textPrimary }}>{v.address ?? `Viewing #${v.id}`}</div>
-                <div style={{ fontSize: '12px', color: COLOR.textMuted }}>{new Date(v.requested_at).toLocaleDateString('nl-NL')}</div>
+                <div style={{ fontSize: '13px', color: COLOR.textPrimary }}>
+                  {v.property?.street
+                    ? `${v.property.street} ${v.property.house_number ?? ''}`.trim() +
+                      (v.property.city ? `, ${v.property.city}` : '')
+                    : `Bezichtiging #${v.id}`}
+                </div>
+                <div style={{ fontSize: '12px', color: COLOR.textMuted }}>
+                  {new Date(`${v.date}T${v.time || '00:00'}`).toLocaleString('nl-NL',
+                    { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                </div>
               </div>
               <span style={{
                 fontSize: '11px', fontWeight: 500, padding: '2px 8px', borderRadius: RADIUS.full,

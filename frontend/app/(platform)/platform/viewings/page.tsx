@@ -11,19 +11,25 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
 interface ViewingRequest {
   id:           number
-  property_id:  number
-  buyer_name?:  string
-  buyer_email?: string
+  date:         string          // YYYY-MM-DD
+  time:         string          // HH:MM
   status:       'pending' | 'confirmed' | 'rejected'
-  requested_at: string
+  buyer_name?:  string
+  buyer_phone?: string
+  listing_ref?: string
+  property?: {
+    street?:       string
+    house_number?: string
+    city?:         string
+  }
 }
 
 interface Slot {
   id:         number
-  date:       string
+  day_of_week: number
+  day_name:   string
   start_time: string
   end_time:   string
-  booked:     boolean
 }
 
 export default function ViewingsPage() {
@@ -38,9 +44,14 @@ export default function ViewingsPage() {
     const token   = localStorage.getItem('groundr_token')
     const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {}
     try {
+      // Availability is per-agent; resolve the current user rather than
+      // hardcoding an id (this used to always request makelaar 1).
+      const meRes = await fetch(`${API_BASE}/api/auth/me`, { headers })
+      const me    = meRes.ok ? await meRes.json() : null
+
       const [rR, sR] = await Promise.all([
-        fetch(`${API_BASE}/api/viewings/requests`,      { headers }),
-        fetch(`${API_BASE}/api/viewings/availability/1`, { headers }),
+        fetch(`${API_BASE}/api/viewings/requests`, { headers }),
+        fetch(`${API_BASE}/api/viewings/availability/${me?.id ?? 0}`, { headers }),
       ])
       const [rD, sD] = await Promise.all([rR.json(), sR.json()])
       setRequests(rD.requests ?? [])
@@ -86,7 +97,7 @@ export default function ViewingsPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: SPACE[4], marginBottom: SPACE[6] }}>
         <StatCard value={loading ? '—' : String(pending)}          label="Pending requests" color={pending > 0 ? COLOR.warning : undefined} />
         <StatCard value={loading ? '—' : String(confirmed)}        label="Confirmed" trend={confirmed > 0 ? 'up' : 'neutral'} />
-        <StatCard value={loading ? '—' : String(slots.filter(s => !s.booked).length)} label="Open slots" />
+        <StatCard value={loading ? '—' : String(slots.length)} label="Availability slots" />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: SPACE[4] }}>
@@ -101,10 +112,16 @@ export default function ViewingsPage() {
             <div key={r.id} style={{ borderBottom: `1px solid ${COLOR.border}`, padding: `${SPACE[4]} 0`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ fontSize: '14px', fontWeight: 500, color: COLOR.textPrimary, marginBottom: '4px' }}>
-                  {r.buyer_name ?? r.buyer_email ?? `Buyer #${r.id}`}
+                  {r.buyer_name ?? r.buyer_phone ?? `Aanvraag #${r.id}`}
                 </div>
                 <div style={{ fontSize: '12px', color: COLOR.textMuted }}>
-                  Property #{r.property_id}  ·  {new Date(r.requested_at).toLocaleDateString('nl-NL')}
+                  {r.property?.street
+                    ? `${r.property.street} ${r.property.house_number ?? ''}`.trim() +
+                      (r.property.city ? `, ${r.property.city}` : '')
+                    : r.listing_ref ?? `Aanvraag #${r.id}`}
+                  {'  ·  '}
+                  {new Date(`${r.date}T${r.time || '00:00'}`).toLocaleString('nl-NL',
+                    { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: SPACE[2] }}>
@@ -131,16 +148,15 @@ export default function ViewingsPage() {
             <div key={s.id} style={{ borderBottom: `1px solid ${COLOR.border}`, padding: `${SPACE[3]} 0`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ fontSize: '13px', fontWeight: 500, color: COLOR.textPrimary }}>
-                  {new Date(s.date).toLocaleDateString('nl-NL', { weekday: 'short', month: 'short', day: 'numeric' })}
+                  {s.day_name}
                 </div>
                 <div style={{ fontSize: '12px', color: COLOR.textMuted }}>{s.start_time} – {s.end_time}</div>
               </div>
               <span style={{
                 fontSize: '11px', fontWeight: 500, padding: '2px 8px', borderRadius: RADIUS.full,
-                background: s.booked ? COLOR.warningLight : COLOR.successLight,
-                color:      s.booked ? COLOR.warningText  : COLOR.successText,
+                background: COLOR.successLight, color: COLOR.successText,
               }}>
-                {s.booked ? 'Booked' : 'Free'}
+                Weekly
               </span>
             </div>
           ))}

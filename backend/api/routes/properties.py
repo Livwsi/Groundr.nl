@@ -20,6 +20,20 @@ router = APIRouter()
 
 
 # ── SEARCH — extended with filters ───────────────────────────────
+async def _city_centroid(name: str) -> Optional[dict]:
+    """Average position of the properties we hold for a city, or None."""
+    async with get_db_session() as db:
+        row = (await db.execute(text("""
+            SELECT AVG(latitude) AS lat, AVG(longitude) AS lon, COUNT(*) AS n
+            FROM properties
+            WHERE lower(city) = lower(:name)
+        """), {"name": name.strip()})).fetchone()
+
+    if not row or not row.n or row.lat is None:
+        return None
+    return {"latitude": float(row.lat), "longitude": float(row.lon)}
+
+
 @router.get("/search")
 async def search_properties(
     q:              str            = Query(...,  description="Address string"),
@@ -37,6 +51,13 @@ async def search_properties(
     logger.info(f"[API] Search: q='{q}' radius={radius}km filters={property_type}/{energy_label}")
 
     location = await geocode_address(q)
+
+    # PDOK geocodes street-level addresses but not bare city names, so a query
+    # like "Eindhoven" would 404. Fall back to the centroid of the properties
+    # we already hold for that city.
+    if not location:
+        location = await _city_centroid(q)
+
     if not location:
         raise HTTPException(status_code=404, detail=f"Address not found: '{q}'")
 

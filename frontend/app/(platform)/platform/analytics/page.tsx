@@ -8,12 +8,15 @@ import { FONT, SPACE } from '@/lib/design/tokens'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
+// Keys as GET /api/listings/analytics/summary actually returns them —
+// `listings` and `submissions` are not prefixed, the rest are.
 interface Totals {
-  total_listings:    number
-  total_submissions: number
-  total_viewings:    number
-  total_bids:        number
-  avg_days_to_sale?: number
+  listings:           number
+  submissions:        number
+  total_viewings:     number
+  total_bids:         number
+  total_meldingen?:   number
+  avg_days_on_market?: number
 }
 
 interface SubmissionStat {
@@ -65,8 +68,8 @@ export default function AnalyticsPage() {
 
       {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: SPACE[4], marginBottom: SPACE[6] }}>
-        <StatCard value={loading ? '—' : String(totals?.total_listings    ?? 0)} label="Total listings" />
-        <StatCard value={loading ? '—' : String(totals?.total_submissions ?? 0)} label="Submissions" />
+        <StatCard value={loading ? '—' : String(totals?.listings    ?? 0)} label="Total listings" />
+        <StatCard value={loading ? '—' : String(totals?.submissions ?? 0)} label="Submissions" />
         <StatCard value={loading ? '—' : String(totals?.total_viewings    ?? 0)} label="Viewings" trend="up" />
         <StatCard value={loading ? '—' : String(totals?.total_bids        ?? 0)} label="Bids received" trend="up" />
       </div>

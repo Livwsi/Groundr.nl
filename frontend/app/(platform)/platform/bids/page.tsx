@@ -8,20 +8,22 @@ import { FONT, SPACE, RADIUS } from '@/lib/design/tokens'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
+// Bids are sealed: GET /api/submissions/{id}/bids returns amounts and
+// timestamps only, never bidder identity.
 interface Bid {
-  id:          number
   amount:      number
-  buyer_name?: string
-  status:      string
-  created_at:  string
+  placed_at:   string
+  updated_at?: string | null
 }
 
 interface ListingWithBids {
-  id:          number
-  address:     string
-  bids:        Bid[]
-  highest_bid: number | null
-  bid_count:   number
+  id:            number
+  address:       string
+  reference?:    string
+  asking_price?: number | null
+  bids:          Bid[]
+  highest_bid:   number | null
+  bid_count:     number
 }
 
 export default function BidsPage() {
@@ -35,21 +37,39 @@ export default function BidsPage() {
     const token   = localStorage.getItem('groundr_token')
     const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {}
     try {
-      const res  = await fetch(`${API_BASE}/api/submissions`, { headers })
+      // The analytics summary already carries bid_count and highest_bid per
+      // submission. This used to GET /api/submissions (POST-only, so it 405'd)
+      // and then fetch bids one submission at a time.
+      const res  = await fetch(`${API_BASE}/api/listings/analytics/summary`, { headers })
       if (!res.ok) throw new Error()
       const data = await res.json()
-      const subs = data.submissions ?? data ?? []
 
-      const withBids = await Promise.all(subs.slice(0, 10).map(async (s: any) => {
+      const withBids: ListingWithBids[] = (data.submissions ?? [])
+        .filter((s: any) => (s.bid_count ?? 0) > 0)
+        .map((s: any) => ({
+          id:          s.id,
+          address:     s.street
+            ? `${s.street} ${s.house_number ?? ''}`.trim() + (s.city ? `, ${s.city}` : '')
+            : s.reference ?? `Submission #${s.id}`,
+          reference:   s.reference,
+          asking_price: s.asking_price ?? null,
+          bids:        [],
+          highest_bid: s.highest_bid ?? null,
+          bid_count:   s.bid_count ?? 0,
+        }))
+
+      // Bid detail lives on a per-submission route; only fetch it for the
+      // submissions that actually have bids.
+      await Promise.all(withBids.map(async (l) => {
         try {
-          const bR   = await fetch(`${API_BASE}/api/submissions/${s.id}/bids`, { headers })
-          const bD   = await bR.json()
-          return { id: s.id, address: s.street ? `${s.street}, ${s.city ?? ''}` : `Submission #${s.id}`, bids: bD.bids ?? [], highest_bid: bD.highest_bid ?? null, bid_count: bD.count ?? 0 }
-        } catch {
-          return { id: s.id, address: `Submission #${s.id}`, bids: [], highest_bid: null, bid_count: 0 }
-        }
+          const bR = await fetch(`${API_BASE}/api/submissions/${l.id}/bids`, { headers })
+          if (!bR.ok) return
+          const bD = await bR.json()
+          l.bids = bD.bids ?? []
+        } catch { /* keep the summary figures */ }
       }))
-      setListings(withBids.filter((l: ListingWithBids) => l.bid_count > 0))
+
+      setListings(withBids)
     } catch { /* empty state */ } finally {
       setLoading(false)
     }
@@ -88,25 +108,22 @@ export default function BidsPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: `1px solid ${COLOR.border}` }}>
-                {['Buyer', 'Amount', 'Status', 'Date'].map(h => (
+                {['#', 'Amount', 'Placed'].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: `${SPACE[2]} ${SPACE[3]}`, fontSize: '11px', fontWeight: 500, color: COLOR.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {l.bids.map(b => (
-                <tr key={b.id} style={{ borderBottom: `1px solid ${COLOR.border}` }}>
-                  <td style={{ padding: `${SPACE[3]} ${SPACE[3]}`, fontSize: '13.5px', color: COLOR.textPrimary }}>{b.buyer_name ?? `Buyer #${b.id}`}</td>
+              {[...l.bids].sort((a, b) => b.amount - a.amount).map((b, i) => (
+                <tr key={`${l.id}-${b.placed_at}-${b.amount}`} style={{ borderBottom: `1px solid ${COLOR.border}` }}>
+                  <td style={{ padding: `${SPACE[3]} ${SPACE[3]}`, fontFamily: FONT.mono, fontSize: '13px', color: COLOR.textMuted }}>
+                    {i + 1}
+                  </td>
                   <td style={{ padding: `${SPACE[3]} ${SPACE[3]}`, fontFamily: FONT.mono, fontSize: '13.5px', color: COLOR.brand, fontWeight: 500 }}>
                     € {b.amount.toLocaleString('nl-NL')}
                   </td>
-                  <td style={{ padding: `${SPACE[3]} ${SPACE[3]}` }}>
-                    <span style={{ fontSize: '11px', fontWeight: 500, padding: '2px 8px', borderRadius: RADIUS.full, background: COLOR.bgSurface2, color: COLOR.textMuted, textTransform: 'capitalize' }}>
-                      {b.status}
-                    </span>
-                  </td>
                   <td style={{ padding: `${SPACE[3]} ${SPACE[3]}`, fontSize: '12.5px', color: COLOR.textMuted }}>
-                    {new Date(b.created_at).toLocaleDateString('nl-NL')}
+                    {new Date(b.placed_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </td>
                 </tr>
               ))}

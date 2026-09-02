@@ -41,8 +41,67 @@ DEMO_ACCOUNTS = [
 
 
 def _split_statements(sql: str) -> list[str]:
-    """schema.sql holds no functions or DO blocks, so splitting on ';' is safe."""
-    return [s.strip() for s in sql.split(";") if s.strip()]
+    """Split schema.sql into statements.
+
+    A plain sql.split(";") is wrong: `--` comments and quoted strings can both
+    contain semicolons. This walks the text tracking whether it is inside a
+    line comment or a single-quoted literal. schema.sql has no dollar-quoting
+    or DO blocks, so that is enough.
+    """
+    statements: list[str] = []
+    buf: list[str] = []
+    in_string = False
+    in_comment = False
+    i = 0
+
+    while i < len(sql):
+        ch = sql[i]
+
+        if in_comment:
+            if ch == "\n":
+                in_comment = False
+                buf.append(ch)
+            i += 1
+            continue
+
+        if in_string:
+            buf.append(ch)
+            if ch == "'":
+                # '' is an escaped quote, not the end of the literal
+                if i + 1 < len(sql) and sql[i + 1] == "'":
+                    buf.append("'")
+                    i += 2
+                    continue
+                in_string = False
+            i += 1
+            continue
+
+        if ch == "-" and sql[i:i + 2] == "--":
+            in_comment = True
+            i += 2
+            continue
+
+        if ch == "'":
+            in_string = True
+            buf.append(ch)
+            i += 1
+            continue
+
+        if ch == ";":
+            statement = "".join(buf).strip()
+            if statement:
+                statements.append(statement)
+            buf = []
+            i += 1
+            continue
+
+        buf.append(ch)
+        i += 1
+
+    tail = "".join(buf).strip()
+    if tail:
+        statements.append(tail)
+    return statements
 
 
 async def apply_schema() -> int:

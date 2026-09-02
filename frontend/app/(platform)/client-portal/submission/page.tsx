@@ -47,7 +47,8 @@ export default function SubmissionPage() {
     setLoading(true)
     try {
       const token = localStorage.getItem('groundr_token')
-      const res   = await fetch(`${API_BASE}/api/submissions`, {
+      // /api/submissions is POST-only; the seller's own submissions are here.
+      const res   = await fetch(`${API_BASE}/api/submissions/my`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
       if (!res.ok) throw new Error()

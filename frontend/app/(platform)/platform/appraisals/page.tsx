@@ -15,7 +15,7 @@ interface Taxatie {
   address:    string
   status:     string
   created_at: string
-  value?:     number | null
+  marktwaarde?: number | null   // the API's name for the appraised value
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -112,7 +112,7 @@ export default function AppraisalsPage() {
                     </span>
                   </td>
                   <td style={{ padding: `${SPACE[3]} ${SPACE[3]}`, fontSize: '13px', fontFamily: FONT.mono, color: COLOR.textPrimary }}>
-                    {t.value ? `€ ${t.value.toLocaleString('nl-NL')}` : '—'}
+                    {t.marktwaarde ? `€ ${t.marktwaarde.toLocaleString('nl-NL')}` : '—'}
                   </td>
                   <td style={{ padding: `${SPACE[3]} ${SPACE[3]}`, fontSize: '12.5px', color: COLOR.textMuted }}>
                     {new Date(t.created_at).toLocaleDateString('nl-NL')}

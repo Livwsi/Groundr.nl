@@ -10,12 +10,21 @@ import { FONT, SPACE, RADIUS } from '@/lib/design/tokens'
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
 interface Submission {
-  id:         number
-  street?:    string
-  city?:      string
-  full_name?: string
-  email?:     string
-  created_at: string
+  id:            number
+  reference?:    string
+  asking_price?: number
+  created_at:    string
+  // The API nests these — see GET /api/submissions/pending
+  property?: {
+    street?:       string
+    house_number?: string
+    city?:         string
+    area_m2?:      number
+  }
+  seller?: {
+    full_name?: string
+    email?:     string
+  }
 }
 
 export default function ApprovalsPage() {
@@ -102,10 +111,13 @@ export default function ApprovalsPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
                 <div style={{ fontSize: '14px', fontWeight: 500, color: COLOR.textPrimary, marginBottom: '4px' }}>
-                  {s.street && s.city ? `${s.street}, ${s.city}` : `Submission #${s.id}`}
+                  {s.property?.street
+                    ? `${s.property.street} ${s.property.house_number ?? ''}`.trim() +
+                      (s.property.city ? `, ${s.property.city}` : '')
+                    : `Submission #${s.id}`}
                 </div>
                 <div style={{ fontSize: '12.5px', color: COLOR.textMuted }}>
-                  {s.full_name ?? s.email ?? 'Unknown'}  ·  {new Date(s.created_at).toLocaleDateString('nl-NL')}
+                  {s.seller?.full_name ?? s.seller?.email ?? 'Onbekende verkoper'}  ·  {new Date(s.created_at).toLocaleDateString('nl-NL')}{s.reference ? `  ·  ${s.reference}` : ''}
                 </div>
               </div>
               <div style={{ display: 'flex', gap: SPACE[2] }}>

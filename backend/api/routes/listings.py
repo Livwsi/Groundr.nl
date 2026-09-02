@@ -271,7 +271,9 @@ async def get_analytics_summary(
             COUNT(DISTINCT m.id)  as melding_count
         FROM listing_submissions ls
         JOIN properties p ON ls.property_id = p.id
-        LEFT JOIN bids b ON b.submission_id = ls.id
+        -- bids has no status column; withdrawn bids are is_active = FALSE.
+        -- Without this the counts here disagree with /api/submissions/{id}/bids.
+        LEFT JOIN bids b ON b.submission_id = ls.id AND b.is_active
         LEFT JOIN viewing_requests vr ON vr.submission_id = ls.id
         LEFT JOIN meldingen m ON m.submission_id = ls.id
         WHERE ls.makelaar_id = :uid

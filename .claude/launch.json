@@ -2,6 +2,13 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "groundr-backend",
+      "runtimeExecutable": "C:\\Users\\ibaka\\groundr\\venv\\Scripts\\python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "api.main:app", "--port", "8000", "--reload"],
+      "port": 8000,
+      "cwd": "backend"
+    },
+    {
       "name": "groundr-frontend",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
