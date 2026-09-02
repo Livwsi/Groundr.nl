@@ -17,8 +17,9 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting Groundr API...")
+    settings.validate_for_boot()   # refuses dev defaults outside development
     await init_db()
-    logger.info("Groundr API ready.")
+    logger.info("Groundr API ready (env=%s, origins=%s).", settings.APP_ENV, settings.cors_origins)
     yield
     logger.info("Shutting down Groundr API...")
 
@@ -32,7 +33,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins     = ["*"],
+    allow_origins     = settings.cors_origins,
     allow_credentials = True,
     allow_methods     = ["*"],
     allow_headers     = ["*"],

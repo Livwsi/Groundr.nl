@@ -9,7 +9,7 @@
 
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { authService } from '@/lib/services/AuthService'
 import {
@@ -69,7 +69,7 @@ const FEATURES = [
   'Market intelligence',
 ]
 
-export default function LoginPage() {
+function LoginForm() {
   const searchParams = useSearchParams()
 
   const [email,        setEmail]        = useState('')
@@ -501,5 +501,15 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+// useSearchParams() opts the subtree into client-side rendering, so it needs a
+// Suspense boundary or `next build` fails when it prerenders /login.
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[var(--color-bg)]" />}>
+      <LoginForm />
+    </Suspense>
   )
 }

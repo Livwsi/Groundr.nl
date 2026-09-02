@@ -15,9 +15,10 @@ node_modules/
 frontend/.env.local
 frontend/.env
 
-# Database
+# Database — ad-hoc dumps are ignored, but the schema is source of truth
 *.sql
 *.dump
+!backend/db/schema.sql
 
 # OS
 .DS_Store

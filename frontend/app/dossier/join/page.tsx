@@ -1,10 +1,10 @@
 'use client'
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
-import { useState, useEffect } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
-export default function JoinPage() {
+function JoinForm() {
   const router       = useRouter()
   const searchParams = useSearchParams()
   const token        = searchParams.get('token') || ''
@@ -202,5 +202,15 @@ export default function JoinPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+// useSearchParams() opts the subtree into client-side rendering, so it needs a
+// Suspense boundary or `next build` fails when it prerenders /dossier/join.
+export default function JoinPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[var(--color-bg)]" />}>
+      <JoinForm />
+    </Suspense>
   )
 }

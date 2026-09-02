@@ -14,6 +14,7 @@ import logging
 from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import select
 
+from config.settings import settings
 from analytics.spatial import radius_query, get_amenities
 from analytics.statistics import calculate_neighborhood_stats
 from analytics.scoring import compute_score
@@ -126,6 +127,12 @@ async def generate_narrative(body: NarrativeRequest):
     """Proxy to Anthropic API for PDF report narrative generation."""
     import aiohttp
 
+    if not settings.ANTHROPIC_API_KEY:
+        raise HTTPException(
+            503,
+            "Narrative generation is not configured — set ANTHROPIC_API_KEY in backend/.env.",
+        )
+
     async with aiohttp.ClientSession() as session:
         async with session.post(
             "https://api.anthropic.com/v1/messages",
@@ -135,7 +142,7 @@ async def generate_narrative(body: NarrativeRequest):
                 "Content-Type":      "application/json",
             },
             json={
-                "model":      "claude-haiku-4-5-20251001",
+                "model":      "claude-haiku-4-5",
                 "max_tokens": 1000,
                 "messages":   [{"role": "user", "content": body.prompt}],
             },

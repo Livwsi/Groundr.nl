@@ -12,6 +12,7 @@
 #   DELETE /api/taxatie/{id}/comparables/{comp_id} → remove comparable
 # ─────────────────────────────────────────────────────────────
 
+import json
 import logging
 import random
 import string
@@ -53,6 +54,13 @@ class UpdateReportRequest(BaseModel):
     condition_note: Optional[str]   = None
     marktwaarde:    Optional[float] = None
     data:           Optional[dict]  = None
+
+# Columns update_report() is allowed to write. Anything not listed here is
+# dropped before it can reach the SET clause.
+UPDATABLE_REPORT_COLUMNS = frozenset({
+    "property_type", "year_built", "living_area_m2", "plot_area_m2",
+    "energy_label", "condition_score", "condition_note", "marktwaarde", "data",
+})
 
 class FinalizeRequest(BaseModel):
     marktwaarde: float
@@ -173,10 +181,20 @@ async def update_report(
     user: User         = Depends(require_user),
     db:   AsyncSession = Depends(get_db),
 ):
-    # Build dynamic SET clause from non-None fields
-    fields = {k: v for k, v in body.model_dump().items() if v is not None}
+    # Build dynamic SET clause from non-None fields.
+    # Column names are interpolated into SQL, so they are checked against an
+    # explicit whitelist rather than trusted to come from the schema — a future
+    # `extra="allow"` on the model would otherwise turn this into an injection.
+    fields = {
+        k: v for k, v in body.model_dump().items()
+        if v is not None and k in UPDATABLE_REPORT_COLUMNS
+    }
     if not fields:
         raise HTTPException(400, "Geen velden om bij te werken.")
+
+    # `data` is a JSONB column; asyncpg needs a JSON string, not a dict.
+    if isinstance(fields.get("data"), dict):
+        fields["data"] = json.dumps(fields["data"])
 
     set_clause = ", ".join(f"{k} = :{k}" for k in fields)
     fields["report_id"] = report_id
