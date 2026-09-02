@@ -1,4 +1,5 @@
 'use client'
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
 import { useState, useEffect } from 'react'
 import { X, Calendar, Clock, User, Phone, MessageSquare, CheckCircle } from 'lucide-react'
@@ -32,7 +33,7 @@ export default function ViewingModal({ makelaarId, submissionId, street, city, o
 
   // Load makelaar availability
   useEffect(() => {
-    fetch(`http://localhost:8000/api/viewings/availability/${makelaarId}`)
+    fetch(`${API_BASE}/api/viewings/availability/${makelaarId}`)
       .then(r => r.json())
       .then(data => setSlots(data.slots || []))
       .catch(() => {})
@@ -75,7 +76,7 @@ export default function ViewingModal({ makelaarId, submissionId, street, city, o
     setError('')
     setLoading(true)
 
-    const token = localStorage.getItem('token') || localStorage.getItem('dossier_token')
+    const token = localStorage.getItem('groundr_token') || localStorage.getItem('dossier_token')
     if (!token) {
       sessionStorage.setItem('after_login', window.location.pathname)
       window.location.href = '/register'
@@ -83,7 +84,7 @@ export default function ViewingModal({ makelaarId, submissionId, street, city, o
     }
 
     try {
-      const res = await fetch('http://localhost:8000/api/viewings/request', {
+      const res = await fetch(API_BASE+'/api/viewings/request', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({

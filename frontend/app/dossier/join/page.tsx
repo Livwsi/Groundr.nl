@@ -1,4 +1,5 @@
 'use client'
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -25,7 +26,7 @@ export default function JoinPage() {
       return
     }
 
-    fetch(`http://localhost:8000/api/auth/invite/${token}`)
+    fetch(`${API_BASE}/api/auth/invite/${token}`)
       .then(r => r.json())
       .then(data => {
         if (data.email) setEmail(data.email)
@@ -50,7 +51,7 @@ export default function JoinPage() {
 
     setLoading(true)
     try {
-      const res = await fetch('http://localhost:8000/api/auth/join', {
+      const res = await fetch(API_BASE+'/api/auth/join', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ token, password, full_name: fullName }),

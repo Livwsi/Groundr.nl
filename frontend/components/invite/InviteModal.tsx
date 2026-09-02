@@ -1,4 +1,5 @@
 'use client'
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
 import { useState } from 'react'
 
@@ -19,8 +20,8 @@ export default function InviteModal({ onClose }: Props) {
     setLoading(true)
 
     try {
-      const token = localStorage.getItem('token')
-      const res = await fetch('http://localhost:8000/api/auth/invite', {
+      const token = localStorage.getItem('groundr_token')
+      const res = await fetch(API_BASE+'/api/auth/invite', {
         method:  'POST',
         headers: {
           'Content-Type':  'application/json',

@@ -1,4 +1,5 @@
 'use client'
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
 import { useState, useEffect } from 'react'
 import { X, TrendingUp, Users, Clock, AlertTriangle } from 'lucide-react'
@@ -50,14 +51,14 @@ export default function BidModal({
   const [success,     setSuccess]     = useState<BidResult | null>(null)
 
   useEffect(() => {
-    const token = localStorage.getItem('token') || localStorage.getItem('dossier_token')
+    const token = localStorage.getItem('groundr_token') || localStorage.getItem('dossier_token')
     setIsLoggedIn(!!token)
     loadBids()
   }, [])
 
   async function loadBids() {
     try {
-      const res  = await fetch(`http://localhost:8000/api/submissions/${submissionId}/bids`)
+      const res  = await fetch(`${API_BASE}/api/submissions/${submissionId}/bids`)
       const data = await res.json()
       setCurrentBids({ count: data.count, highest: data.highest_bid })
     } catch {}
@@ -81,8 +82,8 @@ export default function BidModal({
 
     setLoading(true)
     try {
-      const token = localStorage.getItem('token') || localStorage.getItem('dossier_token')
-      const res   = await fetch(`http://localhost:8000/api/submissions/${submissionId}/bid`, {
+      const token = localStorage.getItem('groundr_token') || localStorage.getItem('dossier_token')
+      const res   = await fetch(`${API_BASE}/api/submissions/${submissionId}/bid`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body:    JSON.stringify({ amount: amt }),
@@ -227,7 +228,6 @@ export default function BidModal({
                       className="flex-1 text-xs py-1.5 border transition-colors"
                       style={{
                         borderColor: '#e5e5e5',
-                        color: '#555',
                         background: amount === String(currentBids.highest! + bump) ? '#0a0a0a' : 'white',
                         color: amount === String(currentBids.highest! + bump) ? 'white' : '#555',
                       }}

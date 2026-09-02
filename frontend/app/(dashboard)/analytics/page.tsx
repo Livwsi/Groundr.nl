@@ -1,4 +1,5 @@
 'use client'
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -60,9 +61,9 @@ export default function AnalyticsPage() {
 
   async function loadAnalytics() {
     setLoading(true)
-    const token = localStorage.getItem('token')
+    const token = localStorage.getItem('groundr_token')
     try {
-      const res  = await fetch('http://localhost:8000/api/listings/analytics/summary', { headers: { Authorization: `Bearer ${token}` } })
+      const res  = await fetch(API_BASE+'/api/listings/analytics/summary', { headers: { Authorization: `Bearer ${token}` } })
       const data = await res.json()
       setTotals(data.totals); setSubmissions(data.submissions || []); setListings(data.listings || [])
     } catch {}

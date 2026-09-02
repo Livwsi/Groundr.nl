@@ -1,9 +1,12 @@
 'use client'
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
 import { useState, useEffect } from 'react'
 import { MapPin, Home, Phone, Mail, List, Map } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import BidModal from '@/components/bidding/BidModal'
+import MeldingModal from '@/components/meldingen/MeldingModal'
+import ViewingModal from '@/components/viewings/ViewingModal'
 
 
 const PropertyMap = dynamic(
@@ -103,9 +106,10 @@ export default function AgencyMicrosite() {
   const [selected,       setSelected]       = useState<any>(null)
   const [bidListing,     setBidListing]     = useState<any>(null)
   const [viewingListing, setViewingListing] = useState<any>(null)
+  const [meldingListing, setMeldingListing] = useState<any>(null)
 
   useEffect(() => {
-    fetch(`http://localhost:8000/api/listings/public/${AGENCY.userId}`)
+    fetch(`${API_BASE}/api/listings/public/${AGENCY.userId}`)
       .then(r => r.json())
       .then(data => {
         const real = (data.listings || []).map((l: any, i: number) => ({
@@ -133,7 +137,7 @@ export default function AgencyMicrosite() {
       })
       .catch(() => {})
 
-    fetch(`http://localhost:8000/api/submissions/public/${AGENCY.userId}`)
+    fetch(`${API_BASE}/api/submissions/public/${AGENCY.userId}`)
       .then(r => r.json())
       .then(data => {
         const submitted = (data.listings || []).map((l: any, i: number) => ({

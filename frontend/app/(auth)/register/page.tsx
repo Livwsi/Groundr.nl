@@ -1,4 +1,5 @@
 'use client'
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -32,10 +33,10 @@ export default function RegisterPage() {
     e.preventDefault(); setLoading(true); setError('')
     if (password.length < 8) { setError('Wachtwoord moet minimaal 8 tekens zijn.'); setLoading(false); return }
     try {
-      const res  = await fetch('http://localhost:8000/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password, full_name: fullName }) })
+      const res  = await fetch(API_BASE+'/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password, full_name: fullName }) })
       const data = await res.json()
       if (!res.ok) { setError(data.detail || 'Registratie mislukt.'); return }
-      localStorage.setItem('token', data.access_token)
+      localStorage.setItem('groundr_token', data.access_token)
       localStorage.setItem('user_id', String(data.user_id))
       localStorage.setItem('email', data.email)
       const redirectTo = sessionStorage.getItem('after_login')

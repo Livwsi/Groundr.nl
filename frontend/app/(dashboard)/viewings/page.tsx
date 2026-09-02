@@ -1,4 +1,5 @@
 'use client'
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -28,11 +29,11 @@ export default function ViewingsPage() {
 
   useEffect(()=>{loadAll()},[])
 
-  async function loadAll(){setLoading(true);const token=localStorage.getItem('token');try{const[rR,sR]=await Promise.all([fetch('http://localhost:8000/api/viewings/requests',{headers:{Authorization:`Bearer ${token}`}}),fetch('http://localhost:8000/api/viewings/availability/1')]);setRequests((await rR.json()).requests||[]);setSlots((await sR.json()).slots||[])}catch{}finally{setLoading(false)}}
-  async function confirm(id:number){setActionId(id);const token=localStorage.getItem('token');await fetch(`http://localhost:8000/api/viewings/${id}/confirm`,{method:'POST',headers:{Authorization:`Bearer ${token}`}});setRequests(prev=>prev.map(r=>r.id===id?{...r,status:'confirmed'}:r));setActionId(null)}
-  async function reject(id:number){setActionId(id);const token=localStorage.getItem('token');await fetch(`http://localhost:8000/api/viewings/${id}/reject`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({note:rejectNote})});setRequests(prev=>prev.map(r=>r.id===id?{...r,status:'rejected',rejection_note:rejectNote}:r));setRejectingId(null);setRejectNote('');setActionId(null)}
-  async function addSlot(){setSavingSlot(true);const token=localStorage.getItem('token');const res=await fetch('http://localhost:8000/api/viewings/availability',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(newSlot)});if(res.ok)loadAll();setSavingSlot(false)}
-  async function deleteSlot(id:number){const token=localStorage.getItem('token');await fetch(`http://localhost:8000/api/viewings/availability/${id}`,{method:'DELETE',headers:{Authorization:`Bearer ${token}`}});setSlots(prev=>prev.filter(s=>s.id!==id))}
+  async function loadAll(){setLoading(true);const token=localStorage.getItem('groundr_token');try{const[rR,sR]=await Promise.all([fetch(API_BASE+'/api/viewings/requests',{headers:{Authorization:`Bearer ${token}`}}),fetch(API_BASE+'/api/viewings/availability/1')]);setRequests((await rR.json()).requests||[]);setSlots((await sR.json()).slots||[])}catch{}finally{setLoading(false)}}
+  async function confirm(id:number){setActionId(id);const token=localStorage.getItem('groundr_token');await fetch(`${API_BASE}/api/viewings/${id}/confirm`,{method:'POST',headers:{Authorization:`Bearer ${token}`}});setRequests(prev=>prev.map(r=>r.id===id?{...r,status:'confirmed'}:r));setActionId(null)}
+  async function reject(id:number){setActionId(id);const token=localStorage.getItem('groundr_token');await fetch(`${API_BASE}/api/viewings/${id}/reject`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({note:rejectNote})});setRequests(prev=>prev.map(r=>r.id===id?{...r,status:'rejected',rejection_note:rejectNote}:r));setRejectingId(null);setRejectNote('');setActionId(null)}
+  async function addSlot(){setSavingSlot(true);const token=localStorage.getItem('groundr_token');const res=await fetch(API_BASE+'/api/viewings/availability',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(newSlot)});if(res.ok)loadAll();setSavingSlot(false)}
+  async function deleteSlot(id:number){const token=localStorage.getItem('groundr_token');await fetch(`${API_BASE}/api/viewings/availability/${id}`,{method:'DELETE',headers:{Authorization:`Bearer ${token}`}});setSlots(prev=>prev.filter(s=>s.id!==id))}
 
   const statusColor=(s:string)=>({pending:{color:S.amber,bg:S.amberLt,rim:'rgba(217,119,6,0.2)'},confirmed:{color:S.green,bg:S.greenLt,rim:S.greenRim},rejected:{color:S.red,bg:S.redLt,rim:'rgba(220,38,38,0.2)'}}[s]||{color:S.amber,bg:S.amberLt,rim:'rgba(217,119,6,0.2)'})
   const statusLabel=(s:string)=>({pending:nl?'In afwachting':'Pending',confirmed:nl?'Bevestigd':'Confirmed',rejected:nl?'Afgewezen':'Rejected'}[s]||s)

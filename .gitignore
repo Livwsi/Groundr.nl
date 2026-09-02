@@ -32,3 +32,8 @@ Thumbs.db
 *.pem
 *.key
 secrets/
+# Claude Code local settings
+.claude/settings.local.json
+
+# Local repo text dumps
+groundr_files_dump.txt

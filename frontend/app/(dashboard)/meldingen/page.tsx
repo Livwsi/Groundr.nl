@@ -1,4 +1,5 @@
 'use client'
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -22,9 +23,9 @@ export default function MeldingenPage() {
   const [actionId,setActionId]=useState<number|null>(null)
 
   useEffect(()=>{loadMeldingen()},[])
-  async function loadMeldingen(){setLoading(true);const token=localStorage.getItem('token');try{const res=await fetch('http://localhost:8000/api/meldingen/',{headers:{Authorization:`Bearer ${token}`}});const data=await res.json();setMeldingen(data.meldingen||[])}catch{}finally{setLoading(false)}}
-  async function resolve(id:number){setActionId(id);const token=localStorage.getItem('token');await fetch(`http://localhost:8000/api/meldingen/${id}/resolve`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({note:resolveNote})});setMeldingen(prev=>prev.map(m=>m.id===id?{...m,status:'resolved',resolution_note:resolveNote}:m));setResolving(null);setResolveNote('');setActionId(null)}
-  async function close(id:number){setActionId(id);const token=localStorage.getItem('token');await fetch(`http://localhost:8000/api/meldingen/${id}/close`,{method:'POST',headers:{Authorization:`Bearer ${token}`}});setMeldingen(prev=>prev.map(m=>m.id===id?{...m,status:'closed'}:m));setActionId(null)}
+  async function loadMeldingen(){setLoading(true);const token=localStorage.getItem('groundr_token');try{const res=await fetch(API_BASE+'/api/meldingen/',{headers:{Authorization:`Bearer ${token}`}});const data=await res.json();setMeldingen(data.meldingen||[])}catch{}finally{setLoading(false)}}
+  async function resolve(id:number){setActionId(id);const token=localStorage.getItem('groundr_token');await fetch(`${API_BASE}/api/meldingen/${id}/resolve`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({note:resolveNote})});setMeldingen(prev=>prev.map(m=>m.id===id?{...m,status:'resolved',resolution_note:resolveNote}:m));setResolving(null);setResolveNote('');setActionId(null)}
+  async function close(id:number){setActionId(id);const token=localStorage.getItem('groundr_token');await fetch(`${API_BASE}/api/meldingen/${id}/close`,{method:'POST',headers:{Authorization:`Bearer ${token}`}});setMeldingen(prev=>prev.map(m=>m.id===id?{...m,status:'closed'}:m));setActionId(null)}
 
   const pc=(p:string)=>({low:{color:'#64748B',bg:'#F1F5F9',rim:'rgba(100,116,139,0.2)',label:nl?'Laag':'Low'},normal:{color:S.blue,bg:S.blueLt,rim:'rgba(37,99,235,0.2)',label:nl?'Normaal':'Normal'},high:{color:S.amber,bg:S.amberLt,rim:'rgba(217,119,6,0.2)',label:nl?'Hoog':'High'},urgent:{color:S.red,bg:S.redLt,rim:'rgba(220,38,38,0.2)',label:'Urgent'}}[p]||{color:S.t3,bg:S.surface2,rim:S.border,label:p})
   const sc=(s:string)=>({open:{color:S.amber,label:nl?'Open':'Open'},resolved:{color:S.green,label:nl?'Opgelost':'Resolved'},closed:{color:S.t3,label:nl?'Gesloten':'Closed'}}[s]||{color:S.t3,label:s})

@@ -1,4 +1,5 @@
 'use client'
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -27,9 +28,9 @@ export default function ApprovalsPage() {
 
   useEffect(()=>{loadSubmissions()},[])
 
-  async function loadSubmissions(){setLoading(true);try{const token=localStorage.getItem('token');const res=await fetch('http://localhost:8000/api/submissions/pending',{headers:{Authorization:`Bearer ${token}`}});const data=await res.json();setSubmissions(data.submissions||[])}catch{setError(t('common.error'))}finally{setLoading(false)}}
-  async function handleApprove(id:number){setActionLoading(id);try{const token=localStorage.getItem('token');const res=await fetch(`http://localhost:8000/api/submissions/${id}/approve`,{method:'POST',headers:{Authorization:`Bearer ${token}`}});if(res.ok)setSubmissions(prev=>prev.filter(s=>s.id!==id))}catch{setError(t('common.error'))}finally{setActionLoading(null)}}
-  async function handleReject(id:number){setActionLoading(id);try{const token=localStorage.getItem('token');const res=await fetch(`http://localhost:8000/api/submissions/${id}/reject`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({note:rejectNote})});if(res.ok){setSubmissions(prev=>prev.filter(s=>s.id!==id));setRejectingId(null);setRejectNote('')}}catch{setError(t('common.error'))}finally{setActionLoading(null)}}
+  async function loadSubmissions(){setLoading(true);try{const token=localStorage.getItem('groundr_token');const res=await fetch(API_BASE+'/api/submissions/pending',{headers:{Authorization:`Bearer ${token}`}});const data=await res.json();setSubmissions(data.submissions||[])}catch{setError(t('common.error'))}finally{setLoading(false)}}
+  async function handleApprove(id:number){setActionLoading(id);try{const token=localStorage.getItem('groundr_token');const res=await fetch(`${API_BASE}/api/submissions/${id}/approve`,{method:'POST',headers:{Authorization:`Bearer ${token}`}});if(res.ok)setSubmissions(prev=>prev.filter(s=>s.id!==id))}catch{setError(t('common.error'))}finally{setActionLoading(null)}}
+  async function handleReject(id:number){setActionLoading(id);try{const token=localStorage.getItem('groundr_token');const res=await fetch(`${API_BASE}/api/submissions/${id}/reject`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({note:rejectNote})});if(res.ok){setSubmissions(prev=>prev.filter(s=>s.id!==id));setRejectingId(null);setRejectNote('')}}catch{setError(t('common.error'))}finally{setActionLoading(null)}}
 
   const urgencyColor=(u:string)=>({normal:{color:S.green,bg:S.greenLt,rim:S.greenRim},urgent:{color:S.amber,bg:S.amberLt,rim:'rgba(217,119,6,0.2)'},asap:{color:S.red,bg:S.redLt,rim:'rgba(220,38,38,0.2)'}}[u]||{color:S.green,bg:S.greenLt,rim:S.greenRim})
   const urgencyLabel=(u:string)=>({normal:nl?'Normaal':'Normal',urgent:'Urgent',asap:nl?'Moet weg':'ASAP'}[u]||u)

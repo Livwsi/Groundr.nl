@@ -1,4 +1,5 @@
 'use client'
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -21,11 +22,11 @@ export default function BidsDashboard() {
 
   useEffect(()=>{loadListings()},[])
 
-  async function loadListings(){setLoading(true);try{const res=await fetch('http://localhost:8000/api/submissions/public/1');const data=await res.json();setListings((data.listings||[]).map((l:any)=>({...l,expanded:false,loadingBids:false,bids:[]})))}catch{setError(t('common.error'))}finally{setLoading(false)}}
+  async function loadListings(){setLoading(true);try{const res=await fetch(API_BASE+'/api/submissions/public/1');const data=await res.json();setListings((data.listings||[]).map((l:any)=>({...l,expanded:false,loadingBids:false,bids:[]})))}catch{setError(t('common.error'))}finally{setLoading(false)}}
 
   async function toggleBids(id:number){
     setListings(prev=>prev.map(l=>l.id!==id?l:l.expanded?{...l,expanded:false}:{...l,expanded:true,loadingBids:true}))
-    try{const token=localStorage.getItem('token');const res=await fetch(`http://localhost:8000/api/submissions/${id}/bids`,{headers:{Authorization:`Bearer ${token}`}});const data=await res.json();setListings(prev=>prev.map(l=>l.id===id?{...l,loadingBids:false,bids:data.bids||[],bid_count:data.count,highest_bid:data.highest_bid}:l))}
+    try{const token=localStorage.getItem('groundr_token');const res=await fetch(`${API_BASE}/api/submissions/${id}/bids`,{headers:{Authorization:`Bearer ${token}`}});const data=await res.json();setListings(prev=>prev.map(l=>l.id===id?{...l,loadingBids:false,bids:data.bids||[],bid_count:data.count,highest_bid:data.highest_bid}:l))}
     catch{setListings(prev=>prev.map(l=>l.id===id?{...l,loadingBids:false}:l))}
   }
 

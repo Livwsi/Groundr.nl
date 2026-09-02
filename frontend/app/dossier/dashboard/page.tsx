@@ -1,4 +1,5 @@
 'use client'
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -98,9 +99,9 @@ export default function DossierDashboard() {
     setLoading(true)
     try {
       const [vRes, bRes, sRes] = await Promise.all([
-        fetch('http://localhost:8000/api/viewings/my',        { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('http://localhost:8000/api/submissions/my-bids', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('http://localhost:8000/api/submissions/my',     { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(API_BASE+'/api/viewings/my',        { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(API_BASE+'/api/submissions/my-bids', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(API_BASE+'/api/submissions/my',     { headers: { Authorization: `Bearer ${token}` } }),
       ])
       const [vData, bData, sData] = await Promise.all([vRes.json(), bRes.ok ? bRes.json() : { bids: [] }, sRes.ok ? sRes.json() : { submissions: [] }])
       setViewings(vData.viewings || [])
@@ -112,11 +113,11 @@ export default function DossierDashboard() {
   }
 
   async function loadSearches(token: string) {
-    try { const res = await fetch('http://localhost:8000/api/searches/', { headers: { Authorization: `Bearer ${token}` } }); const data = await res.json(); setSearches(data.searches || []) } catch {}
+    try { const res = await fetch(API_BASE+'/api/searches/', { headers: { Authorization: `Bearer ${token}` } }); const data = await res.json(); setSearches(data.searches || []) } catch {}
   }
 
   async function loadDocuments(token: string) {
-    try { const res = await fetch('http://localhost:8000/api/documents/', { headers: { Authorization: `Bearer ${token}` } }); const data = await res.json(); setDocuments(data.documents || []) } catch {}
+    try { const res = await fetch(API_BASE+'/api/documents/', { headers: { Authorization: `Bearer ${token}` } }); const data = await res.json(); setDocuments(data.documents || []) } catch {}
   }
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -125,7 +126,7 @@ export default function DossierDashboard() {
     try {
       const token = localStorage.getItem('dossier_token')
       const fd    = new FormData(); fd.append('file', file)
-      const res   = await fetch('http://localhost:8000/api/documents/upload', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd })
+      const res   = await fetch(API_BASE+'/api/documents/upload', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd })
       const data  = await res.json()
       if (!res.ok) { setUploadError(data.detail || 'Upload mislukt.'); return }
       loadDocuments(token!)
@@ -135,7 +136,7 @@ export default function DossierDashboard() {
 
   async function handleDeleteDoc(id: number) {
     const token = localStorage.getItem('dossier_token')
-    await fetch(`http://localhost:8000/api/documents/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+    await fetch(`${API_BASE}/api/documents/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
     loadDocuments(token!)
   }
 
@@ -143,7 +144,7 @@ export default function DossierDashboard() {
     e.preventDefault(); setSavingSearch(true); setSearchMsg('')
     try {
       const token = localStorage.getItem('dossier_token')
-      const res   = await fetch('http://localhost:8000/api/searches/', {
+      const res   = await fetch(API_BASE+'/api/searches/', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           city: searchForm.city || null,
@@ -161,7 +162,7 @@ export default function DossierDashboard() {
 
   async function handleDeleteSearch(id: number) {
     const token = localStorage.getItem('dossier_token')
-    await fetch(`http://localhost:8000/api/searches/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+    await fetch(`${API_BASE}/api/searches/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
     loadSearches(token!)
   }
 
@@ -454,7 +455,7 @@ export default function DossierDashboard() {
                               <div style={{ fontSize: '13px', fontWeight: 500, color: S.t1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.original_name}</div>
                               <div style={{ fontSize: '11px', color: S.t3 }}>{formatSize(doc.file_size)}</div>
                             </div>
-                            <button onClick={() => window.open(`http://localhost:8000/api/documents/${doc.id}/download`, '_blank')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: S.t3, padding: '2px' }}
+                            <button onClick={() => window.open(`${API_BASE}/api/documents/${doc.id}/download`, '_blank')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: S.t3, padding: '2px' }}
                               onMouseEnter={e => (e.currentTarget.style.color = S.green)}
                               onMouseLeave={e => (e.currentTarget.style.color = S.t3)}>
                               <Download size={14} />

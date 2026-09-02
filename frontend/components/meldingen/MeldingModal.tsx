@@ -1,4 +1,5 @@
 'use client'
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
 import { useState } from 'react'
 import { X, AlertTriangle, CheckCircle } from 'lucide-react'
@@ -45,14 +46,14 @@ export default function MeldingModal({
     setLoading(true)
 
     // Prefer dossier_token when on dossier pages, fallback to makelaar token
-    const token = localStorage.getItem('dossier_token') || localStorage.getItem('token')
+    const token = localStorage.getItem('dossier_token') || localStorage.getItem('groundr_token')
     if (!token) {
       window.location.href = '/register'
       return
     }
 
     try {
-      const res = await fetch('http://localhost:8000/api/meldingen/', {
+      const res = await fetch(API_BASE+'/api/meldingen/', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({

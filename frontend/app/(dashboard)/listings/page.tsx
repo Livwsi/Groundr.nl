@@ -1,4 +1,5 @@
 'use client'
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -46,8 +47,8 @@ export default function ListingsPage() {
   async function loadListings() {
     setLoading(true)
     try {
-      const token = localStorage.getItem('token')
-      const res   = await fetch('http://localhost:8000/api/listings/', { headers: { Authorization: `Bearer ${token}` } })
+      const token = localStorage.getItem('groundr_token')
+      const res   = await fetch(API_BASE+'/api/listings/', { headers: { Authorization: `Bearer ${token}` } })
       const data  = await res.json()
       setListings(data.listings || [])
     } catch { setError(t('common.error')) }
@@ -57,8 +58,8 @@ export default function ListingsPage() {
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault(); setSaving(true); setError(''); setSuccess('')
     try {
-      const token = localStorage.getItem('token')
-      const res   = await fetch('http://localhost:8000/api/listings/', {
+      const token = localStorage.getItem('groundr_token')
+      const res   = await fetch(API_BASE+'/api/listings/', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ address: form.address, asking_price: parseFloat(form.asking_price), area_m2: form.area_m2 ? parseFloat(form.area_m2) : null, bedrooms: form.bedrooms ? parseInt(form.bedrooms) : null, property_type: form.property_type, energy_label: form.energy_label, is_rental: form.is_rental }),
       })
@@ -73,8 +74,8 @@ export default function ListingsPage() {
   async function handleDelete(id: number) {
     if (!confirm(nl ? 'Weet u zeker dat u deze listing wilt verwijderen?' : 'Are you sure you want to delete this listing?')) return
     try {
-      const token = localStorage.getItem('token')
-      await fetch(`http://localhost:8000/api/listings/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+      const token = localStorage.getItem('groundr_token')
+      await fetch(`${API_BASE}/api/listings/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
       loadListings()
     } catch { setError(t('common.error')) }
   }
